@@ -1,18 +1,17 @@
-<h1 align="center">Welcome to the Digital Life Tracker 👋</h1>
+<h1 align="center">Welcome to the File Sharing Application👋</h1>
 
 
 ## 🤔 Problem
-We often have to transfer files between our mobile and desktop devices. But generally we do it with whatsapp, telegram or whatsapp which consumes internet. We can create a web application and use p2p technology to avoid internet consumption and that's what this project does.
+We often have to transfer files between our mobile and desktop devices. But generally we do it with WhatsApp, Telegram or some other application which passes through the internet. We can create a mobile-app for use on our institutes intranet.
 
 ## ✨ Features
-- Web App to share files between devices without internet. (But the devices must be in the same network)
-- Use of web torrent or similar p2p protocols.
-- Tech Stack : React, WebTorrent
+- Mobile application to share files between devices across an intranet. 
+- Use of web-torrent or similar P2P protocols.
+- Tech Stack : Flutter, GoLang
 
 ## Maintainers
 
-- 👤 **Yatendra** [@yatendra1999](https://github.com/yatendra1999)
-- 👤 **Shashwat Jaiswal** [@shashwatj07](https://github.com/shashwatj07)
+- 👤 **Satvik** [@VickyMerzOwn](https://github.com/VickyMerzOwn)
 
 ---
 
