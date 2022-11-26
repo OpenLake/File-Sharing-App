@@ -12,6 +12,7 @@ We often have to transfer files between our mobile and desktop devices. But gene
 ## Maintainers
 
 - 👤 **Satvik** [@VickyMerzOwn](https://github.com/VickyMerzOwn)
+- 👤 **Chaitanya** [@chaitanyabisht](https://github.com/chaitanyabisht)
 
 ---
 
