@@ -6,9 +6,11 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
@@ -24,10 +26,14 @@ func main() {
 	log.Fatal(http.ListenAndServe(port, router))
 }
 func rootPage(w http.ResponseWriter, r *http.Request) {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	ctx := context.Background()
-	endpoint := "192.168.87.169:9000"
-	accessKeyID := "WRkXVNHWZLEbsTkN"
-	secretAccessKey := "sx793y7hfUYqUaNPOEjXHh9ezqgnvPib"
+	endpoint := os.Getenv("LOCAL_IP")
+	accessKeyID := os.Getenv("ACCESS_KEY")
+	secretAccessKey := os.Getenv("SECRET_KEY")
 	useSSL := false
 
 	// Initialize minio client object.
