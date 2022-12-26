@@ -4,7 +4,8 @@
 *.dll
 *.so
 *.dylib
-
+*.mod
+*.env
 # Test binary, built with `go test -c`
 *.test
 
