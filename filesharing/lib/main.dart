@@ -86,7 +86,9 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
+import 'dart:convert';
 
+import 'package:http/http.dart';
 
 void main() => runApp(MyApp());
 
@@ -123,19 +125,21 @@ class _MyHomePageState extends State<MyHomePage> {
               child: Text('Upload File'),
               onPressed: () async {
                 // Select a file using the file picker plugin
-                FilePickerResult? file = await FilePicker.platform.pickFiles(type: FileType.any);
-                if(file != null){
-                  var response = await http.post(
-                    Uri.parse('http://10.3.18.202:8000/upload'),
-                    body: {
-                      'file': file.files.first.bytes,
-                    },
+                var result =
+                    await FilePicker.platform.pickFiles(type: FileType.any);
 
-                  );
+                if (result != null) {
+                  var request = MultipartRequest(
+                      'POST', Uri.parse('http://10.3.18.69:8000/upload'));
+                  request.files.add(await http.MultipartFile.fromPath(
+                    'file',
+                    result.files.first.path.toString(),
+                  ));
 
                   // Send a POST request to the server to upload the file
-
-                  print(response.body);
+                  var response = await request.send();
+                  print(response.statusCode);
+                  print(request.files.first.field);
                 }
               },
             ),
@@ -143,7 +147,8 @@ class _MyHomePageState extends State<MyHomePage> {
               child: Text('Download File'),
               onPressed: () async {
                 // Send a GET request to the server to download the file
-                var response = await http.get(Uri.parse('http://10.3.18.202:8000/download'));
+                var response = await http
+                    .get(Uri.parse('http://10.3.18.69:8000/download'));
 
                 // Save the file to the device
                 var file = File('/path/to/save/file.txt');

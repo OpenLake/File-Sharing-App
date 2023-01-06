@@ -43,6 +43,7 @@ dependencies:
   file_picker:
 
   io: ^1.0.3
+  convert: ^3.1.1
 
 dev_dependencies:
   flutter_test:
