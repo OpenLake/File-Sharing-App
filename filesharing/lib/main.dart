@@ -80,6 +80,7 @@
 //   //   throw Exception('Failed to create album.');
 //   // }
 // }
+import 'dart:html';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -130,7 +131,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
                 if (result != null) {
                   var request = MultipartRequest(
-                      'POST', Uri.parse('http://10.3.18.69:8000/upload'));
+                      'POST', Uri.parse('http://10.3.17.54:8000/upload'));
                   request.files.add(await http.MultipartFile.fromPath(
                     'file',
                     result.files.first.path.toString(),
@@ -145,15 +146,15 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             ElevatedButton(
               child: Text('Download File'),
-              onPressed: () async {
-                // Send a GET request to the server to download the file
-                var response = await http
-                    .get(Uri.parse('http://10.3.18.69:8000/download'));
-
-                // Save the file to the device
-                var file = File('/path/to/save/file.txt');
-                file.writeAsStringSync(response.body);
-              },
+              onPressed: <String> () async {
+    final response = await http.get(Uri.parse('http://10.3.17.54:8000/download'));
+    if (response.statusCode == 200) {
+    print(response.body);
+    // Text(response.body);
+    } else {
+    throw Exception('Failed to get string');
+    }
+    }
             ),
           ],
         ),
