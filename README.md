@@ -57,7 +57,7 @@ go run file-uploader.go
 flutter run
 ```
 ## Maintainers
-
+- 👤 **Sudeep Ranjan Sahoo** [@srs-sudeep](https://github.com/srs-sudeep)
 - 👤 **Satvik** [@VickyMerzOwn](https://github.com/VickyMerzOwn)
 - 👤 **Chaitanya** [@chaitanyabisht](https://github.com/chaitanyabisht)
 
