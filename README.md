@@ -40,7 +40,8 @@ go get github.com/minio/minio-go/v7
 ```
 
 **4.** Run the go command to start golang backend.
-```go run file-uploader.go
+```
+go run file-uploader.go
 ```
 ## 📄 Running the frontend (Flutter)
 
