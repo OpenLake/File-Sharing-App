@@ -11,13 +11,14 @@ We often have to transfer files between our mobile and desktop devices. But gene
 
 ## 📄 Running Server of Minio
 
-Run the server of Minio in a terminal.
+**1.** Run the server of Minio in a terminal in your home directory.
 
-**1.** 
+**2.** Make a minio directory.
 ```
 mkdir ~/minio
 ```
-**2.** 
+
+**3.** Run the server of Minio in a terminal with port 9090
 ```
 minio server ~/minio --console-address :9090
 ```
@@ -27,12 +28,14 @@ minio server ~/minio --console-address :9090
 **1.** cd to Go folder and run the backend in a separate terminal.
 
 
-**2.** Make a .env file with the following contents
+**2.** Make a .env file with the following contents.
+
 LOCAL_IP ="" //write your local IP connecting to the minio server with 9000 as port.
  
 ACCESS_KEY="" // write your access key for minio server.
 
 SECRET_KEY="" // write your secret key for minio server.
+
 
 **3.** If your go file is showing error that you dont have minio package then run this command.
 ```
@@ -43,6 +46,7 @@ go get github.com/minio/minio-go/v7
 ```
 go run file-uploader.go
 ```
+
 ## 📄 Running the frontend (Flutter)
 
 
