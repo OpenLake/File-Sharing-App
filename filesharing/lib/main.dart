@@ -1,96 +1,7 @@
-// import 'dart:convert';
-// import 'package:flutter/material.dart';
-// import 'package:http/http.dart' as http;
-//
-// void main() => runApp(const MyApp());
-//
-// class MyApp extends StatelessWidget {
-//   const MyApp({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     const appTitle = 'Form Validation Demo';
-//
-//     return MaterialApp(
-//       title: appTitle,
-//       home: Scaffold(
-//         appBar: AppBar(
-//           title: const Text(appTitle),
-//         ),
-//         body: const MyCustomForm(),
-//       ),
-//     );
-//   }
-// }
-//
-// // Create a Form widget.
-// class MyCustomForm extends StatefulWidget {
-//   const MyCustomForm({super.key});
-//
-//   @override
-//   MyCustomFormState createState() {
-//     return MyCustomFormState();
-//   }
-// }
-//
-// // Create a corresponding State class.
-// // This class holds data related to the form.
-// class MyCustomFormState extends State<MyCustomForm> {
-//   // Create a global key that uniquely identifies the Form widget
-//   // and allows validation of the form.
-//   //
-//   // Note: This is a GlobalKey<FormState>,
-//   // not a GlobalKey<MyCustomFormState>.
-//   final _formKey = GlobalKey<FormState>();
-//   final TextEditingController _controller = TextEditingController();
-//   postTest(String Title) async {
-//     // var requestBody = {
-//     //
-//     // };
-//
-//     http.Response response = await http.post(
-//       Uri.parse('http://10.3.19.15:5500'),
-//       // body: json.encode(requestBody),
-//       headers: <String, String>{
-//         'Content-Type': 'application/json; charset=UTF-8',
-//         'grant_type': Title,
-//       },
-//       body: jsonEncode(<String, String>{
-//         'grant_type': Title,
-//       }),
-//     );
-//     if (response.statusCode == 201) {
-//       // If the server did return a 201 CREATED response,
-//       // then parse the JSON.
-//       return print('succeed');
-//     } else {
-//       // If the server did not return a 201 CREATED response,
-//       // then throw an exception.
-//       throw Exception('Failed to create album.');
-//     }
-//   }
-//
-//   // if (response.statusCode == 201) {
-//   //   // If the server did return a 201 CREATED response,
-//   //   // then parse the JSON.
-//   //   return Home;
-//   // } else {
-//   //   // If the server did not return a 201 CREATED response,
-//   //   // then throw an exception.
-//   //   throw Exception('Failed to create album.');
-//   // }
-// }
-// import 'dart:html';
-// import 'dart:typed_data';
-
-// import 'dart:ffi';
-
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:clipboard/clipboard.dart';
-// import 'dart:io';
-// import 'dart:convert';
 import 'package:flutter_share/flutter_share.dart';
 import 'package:http/http.dart';
 
@@ -120,9 +31,9 @@ class _MyHomePageState extends State<MyHomePage> {
         title: 'Example share',
         text: 'Example share text',
         linkUrl: 'https://flutter.dev/',
-        chooserTitle: 'Example Chooser Title'
-    );
+        chooserTitle: 'Example Chooser Title');
   }
+
   var download = " ";
   @override
   Widget build(BuildContext context) {
@@ -140,29 +51,32 @@ class _MyHomePageState extends State<MyHomePage> {
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.visible,
                 style: const TextStyle(
-                    overflow: TextOverflow.fade,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                    fontSize: 40,
-                    shadows: <Shadow>[
-                Shadow(
-                offset: Offset(2.0, 2.0),
-                blurRadius: 3.0,
-                color: Color.fromARGB(255, 0, 0, 0),
-              ),
-              Shadow(
-                offset: Offset(2.0, 2.0),
-                blurRadius: 8.0,
-                color: Color.fromARGB(125, 0, 0, 255),
-              ),
-            ],),
-
+                  overflow: TextOverflow.fade,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                  fontSize: 100,
+                  shadows: <Shadow>[
+                    Shadow(
+                      offset: Offset(2.0, 2.0),
+                      blurRadius: 3.0,
+                      color: Color.fromARGB(255, 0, 0, 0),
+                    ),
+                    Shadow(
+                      offset: Offset(2.0, 2.0),
+                      blurRadius: 8.0,
+                      color: Color.fromARGB(125, 0, 0, 255),
+                    ),
+                  ],
+                ),
               ),
               SizedBox(height: 100),
               ElevatedButton(
                 child: Text(
                   'UPLOAD FILE',
-                  style: TextStyle(fontWeight: FontWeight.bold,overflow: TextOverflow.visible,),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    overflow: TextOverflow.visible,
+                  ),
                 ),
                 style: ButtonStyle(
                   textStyle:
@@ -180,7 +94,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
                   if (result != null) {
                     var request = MultipartRequest(
-                        'POST', Uri.parse('http://10.3.9.249:8000/upload'));
+                        'POST', Uri.parse('http://10.3.10.222:8000/upload'));
                     request.files.add(await http.MultipartFile.fromPath(
                       'file',
                       result.files.first.path.toString(),
@@ -198,14 +112,13 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: Row(
                   children: [
                     Container(
-                        margin: EdgeInsets.fromLTRB(10,10,10,10),
+                        margin: EdgeInsets.fromLTRB(400, 10, 10, 10),
                         constraints: BoxConstraints(
-
                             minHeight: 50,
                             minWidth: 50,
-                            maxWidth: 400,
+                            maxWidth: 1000,
                             maxHeight: 70),
-                        decoration:BoxDecoration(
+                        decoration: BoxDecoration(
                           // border: Border(
                           //   top: BorderSide(),
                           //   left: BorderSide(),
@@ -219,7 +132,8 @@ class _MyHomePageState extends State<MyHomePage> {
                         ),
                         child: Text(download)),
                     GestureDetector(
-                      child: const Icon(Icons.copy, color: Colors.blue, size: 32),
+                      child:
+                          const Icon(Icons.copy, color: Colors.blue, size: 32),
                       onTap: () {
                         if (download.trim() == "") {
                           print('enter text');
@@ -235,11 +149,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       },
                     ),
                     IconButton(
-                      onPressed:share,
-                      icon: Icon(Icons.share,
-                          color: Colors.blue, size: 32
-
-                      ),
+                      onPressed: share,
+                      icon: Icon(Icons.share, color: Colors.blue, size: 32),
                     ),
                   ],
                 ),
@@ -248,11 +159,14 @@ class _MyHomePageState extends State<MyHomePage> {
               ElevatedButton(
                   child: Text(
                     'DOWNLOAD FILE',
-                    style: TextStyle(fontWeight: FontWeight.bold,overflow: TextOverflow.visible,),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      overflow: TextOverflow.visible,
+                    ),
                   ),
                   style: ButtonStyle(
-                    textStyle:
-                        MaterialStateProperty.all(const TextStyle(fontSize: 23)),
+                    textStyle: MaterialStateProperty.all(
+                        const TextStyle(fontSize: 23)),
                     overlayColor: MaterialStateProperty.all(Colors.red),
                     shadowColor: MaterialStateProperty.all(Colors.lightBlue),
                     elevation: MaterialStateProperty.all(15),
@@ -260,7 +174,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   onPressed: <String>() async {
                     final response = await http
-                        .get(Uri.parse('http://10.3.9.249:8000/download'));
+                        .get(Uri.parse('http://10.3.10.222:8000/download'));
                     if (response.statusCode == 200) {
                       print(response.body);
                       setState(() {
