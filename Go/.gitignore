@@ -6,6 +6,7 @@
 *.dylib
 *.mod
 .env
+.vscode
 # Test binary, built with `go test -c`
 *.test
 
