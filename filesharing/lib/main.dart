@@ -30,6 +30,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   String download = "";
+  String? uploadedFilename; // Store the uploaded filename
 
   Future<void> share() async {
     await Share.share(
@@ -73,7 +74,7 @@ class _MyHomePageState extends State<MyHomePage> {
               const SizedBox(height: 50),
               ElevatedButton(
                 onPressed: () async {
-                  final currentContext = context;
+                  final currentContext = context; // Store context before async
                   try {
                     FilePickerResult? result =
                         await FilePicker.platform.pickFiles(
@@ -96,6 +97,13 @@ class _MyHomePageState extends State<MyHomePage> {
                       var response = await request.send();
                       if (mounted && currentContext.mounted) {
                         if (response.statusCode == 200) {
+                          // Read the response body (presigned URL and success message)
+                          final responseBody =
+                              await response.stream.bytesToString();
+                          setState(() {
+                            download = responseBody.split('\n').first;
+                            uploadedFilename = result.files.single.name;
+                          });
                           ScaffoldMessenger.of(currentContext).showSnackBar(
                             const SnackBar(
                                 content: Text("File uploaded successfully")),
@@ -184,8 +192,18 @@ class _MyHomePageState extends State<MyHomePage> {
                 onPressed: () async {
                   final currentContext = context;
                   try {
-                    final response = await http
-                        .get(Uri.parse('http://10.3.10.222:8000/download'));
+                    if (uploadedFilename == null || uploadedFilename!.isEmpty) {
+                      if (mounted && currentContext.mounted) {
+                        ScaffoldMessenger.of(currentContext).showSnackBar(
+                          const SnackBar(content: Text("No file uploaded yet")),
+                        );
+                      }
+                      return;
+                    }
+                    final response = await http.get(
+                      Uri.parse(
+                          'http://10.3.10.222:8000/download?filename=$uploadedFilename'),
+                    );
                     if (mounted && currentContext.mounted) {
                       if (response.statusCode == 200) {
                         setState(() {
@@ -193,7 +211,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         });
                         ScaffoldMessenger.of(currentContext).showSnackBar(
                           const SnackBar(
-                              content: Text("File downloaded successfully")),
+                              content: Text("File URL retrieved successfully")),
                         );
                       } else {
                         ScaffoldMessenger.of(currentContext).showSnackBar(
@@ -206,7 +224,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   } catch (e) {
                     if (mounted && currentContext.mounted) {
                       ScaffoldMessenger.of(currentContext).showSnackBar(
-                        SnackBar(content: Text("Error downloading file: $e")),
+                        SnackBar(
+                            content: Text("Error retrieving file URL: $e")),
                       );
                     }
                   }
