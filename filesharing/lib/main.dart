@@ -73,6 +73,7 @@ class _MyHomePageState extends State<MyHomePage> {
               const SizedBox(height: 50),
               ElevatedButton(
                 onPressed: () async {
+                  final currentContext = context;
                   try {
                     FilePickerResult? result =
                         await FilePicker.platform.pickFiles(
@@ -93,15 +94,14 @@ class _MyHomePageState extends State<MyHomePage> {
                       );
 
                       var response = await request.send();
-                      if (mounted) {
-                        // Check if widget is still mounted
+                      if (mounted && currentContext.mounted) {
                         if (response.statusCode == 200) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(currentContext).showSnackBar(
                             const SnackBar(
                                 content: Text("File uploaded successfully")),
                           );
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(currentContext).showSnackBar(
                             SnackBar(
                               content: Text(
                                   "File upload failed: ${response.statusCode}"),
@@ -111,9 +111,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       }
                     }
                   } catch (e) {
-                    if (mounted) {
-                      // Check if widget is still mounted
-                      ScaffoldMessenger.of(context).showSnackBar(
+                    if (mounted && currentContext.mounted) {
+                      ScaffoldMessenger.of(currentContext).showSnackBar(
                         SnackBar(content: Text("Error uploading file: $e")),
                       );
                     }
@@ -153,18 +152,17 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   GestureDetector(
                     onTap: () async {
+                      final currentContext = context;
                       if (download.trim().isEmpty) {
-                        if (mounted) {
-                          // Check if widget is still mounted
-                          ScaffoldMessenger.of(context).showSnackBar(
+                        if (mounted && currentContext.mounted) {
+                          ScaffoldMessenger.of(currentContext).showSnackBar(
                             const SnackBar(content: Text("No text to copy")),
                           );
                         }
                       } else {
                         await Clipboard.setData(ClipboardData(text: download));
-                        if (mounted) {
-                          // Check if widget is still mounted
-                          ScaffoldMessenger.of(context).showSnackBar(
+                        if (mounted && currentContext.mounted) {
+                          ScaffoldMessenger.of(currentContext).showSnackBar(
                             const SnackBar(
                               content: Text("Text copied"),
                               duration: Duration(seconds: 2),
@@ -184,21 +182,21 @@ class _MyHomePageState extends State<MyHomePage> {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () async {
+                  final currentContext = context;
                   try {
                     final response = await http
                         .get(Uri.parse('http://10.3.10.222:8000/download'));
-                    if (mounted) {
-                      // Check if widget is still mounted
+                    if (mounted && currentContext.mounted) {
                       if (response.statusCode == 200) {
                         setState(() {
                           download = response.body;
                         });
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(currentContext).showSnackBar(
                           const SnackBar(
                               content: Text("File downloaded successfully")),
                         );
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(currentContext).showSnackBar(
                           SnackBar(
                               content: Text(
                                   "Download failed: ${response.statusCode}")),
@@ -206,9 +204,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       }
                     }
                   } catch (e) {
-                    if (mounted) {
-                      // Check if widget is still mounted
-                      ScaffoldMessenger.of(context).showSnackBar(
+                    if (mounted && currentContext.mounted) {
+                      ScaffoldMessenger.of(currentContext).showSnackBar(
                         SnackBar(content: Text("Error downloading file: $e")),
                       );
                     }
