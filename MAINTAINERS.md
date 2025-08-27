@@ -1,7 +1,7 @@
 # Maintainers
 
-| Name          | GitHub Handle    | Role             | Time | 
-|---------------|------------------|------------------|------|
-| Ashish Kumar Dash      | [@Ashish-Kumar-Dash](https://github.com/Ashish-Kumar-Dash) | Maintainer | August 2025 - Present | 
-| Chaitanya Bisht | [@chaitanyabisht](https://github.com/chaitanyabisht) | Maintainer | Nov 2022 - Jan 2023 | 
-| Sudeep Ranjan Sahoo | [@srs-sudeep](https://github.com/srs-sudeep) | Contributor - FOSS Overflow 2022-23 | Nov 2022 - Jan 2023 | 
+| Name          | GitHub Handle    | Role             | Time | Program |
+|---------------|------------------|------------------|------|---------|
+| Ashish Kumar Dash      | [@Ashish-Kumar-Dash](https://github.com/Ashish-Kumar-Dash) | Mentor | August 2025 - Present | Monsoon Sprint 2025 |
+| Chaitanya Bisht | [@chaitanyabisht](https://github.com/chaitanyabisht) | Mentor | Nov 2022 - Jan 2023 | FOSS OverFlow 2022-23 |
+| Sudeep Ranjan Sahoo | [@srs-sudeep](https://github.com/srs-sudeep) | Mentee | Nov 2022 - Jan 2023 | FOSS OverFlow 2022-23 |
