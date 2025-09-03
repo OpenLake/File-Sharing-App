@@ -2,7 +2,10 @@ module example/Go
 
 go 1.21
 
-require github.com/minio/minio-go/v7 v7.0.76
+require (
+	github.com/joho/godotenv v1.5.1
+	github.com/minio/minio-go/v7 v7.0.76
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
