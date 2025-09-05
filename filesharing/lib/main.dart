@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
@@ -58,7 +59,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.blue,
-                  fontSize: 40, // Reduced for better responsiveness
+                  fontSize: 40,
                   shadows: <Shadow>[
                     Shadow(
                       offset: Offset(2.0, 2.0),
@@ -89,27 +90,45 @@ class _MyHomePageState extends State<MyHomePage> {
                             allowMultiple: false,
                           );
 
-                          if (result != null &&
-                              result.files.single.path != null) {
+                          if (result != null && result.files.isNotEmpty) {
                             var request = http.MultipartRequest(
                               'POST',
                               Uri.parse('http://127.0.0.1:8000/upload'),
                             );
-                            request.files.add(
-                              await http.MultipartFile.fromPath(
-                                'file',
-                                result.files.single.path!,
-                              ),
-                            );
+
+                            if (kIsWeb) {
+                              // On web, use bytes instead of path
+                              if (result.files.single.bytes != null) {
+                                request.files.add(http.MultipartFile.fromBytes(
+                                  'file',
+                                  result.files.single.bytes!,
+                                  filename: result.files.single.name,
+                                ));
+                                uploadedFilename = result.files.single.name;
+                              } else {
+                                throw Exception('File bytes are unavailable');
+                              }
+                            } else {
+                              // On other platforms, use path
+                              if (result.files.single.path != null) {
+                                request.files
+                                    .add(await http.MultipartFile.fromPath(
+                                  'file',
+                                  result.files.single.path!,
+                                ));
+                                uploadedFilename = result.files.single.name;
+                              } else {
+                                throw Exception('File path is unavailable');
+                              }
+                            }
 
                             var response = await request.send();
+                            final responseBody = await response.stream
+                                .bytesToString(); // Always read body
                             if (mounted && currentContext.mounted) {
                               if (response.statusCode == 200) {
-                                final responseBody =
-                                    await response.stream.bytesToString();
                                 setState(() {
                                   download = responseBody.split('\n').first;
-                                  uploadedFilename = result.files.single.name;
                                   isUploading = false;
                                 });
                                 ScaffoldMessenger.of(currentContext)
@@ -126,7 +145,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                     .showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                        "File upload failed: ${response.statusCode}"),
+                                        "File upload failed: ${response.statusCode} - $responseBody"),
                                   ),
                                 );
                               }
