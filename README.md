@@ -18,6 +18,7 @@ A cross-platform intranet-based file sharing application built with Flutter, GoL
 ## Repository Links <sup>[↥ Back to top](#table-of-contents)</sup>
 - **Main Repository:** [OpenLake](https://github.com/OpenLake)
 - **This Project Repository:** [File Sharing Application](https://github.com/ashish-kumar-dash/file-sharing-app)
+- **Discord** [Discord](https://discord.gg/tNcwTQ5Q43)
 
 ---
 

@@ -7,7 +7,7 @@ Please read this guide before contributing to ensure smooth collaboration.
 ---
 
 ## 1. Code of Conduct
-All contributors are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md) to maintain a welcoming environment.
+All contributors are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md) to maintain a welcoming environment. All technical exchanges on Discord -https://discord.gg/tNcwTQ5Q43.
 
 ---
 
