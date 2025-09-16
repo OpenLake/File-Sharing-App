@@ -18,7 +18,10 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		fmt.Printf("Error loading .env file: %v\n", err)
 	}
-
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "OK")
+	})
 	http.HandleFunc("/upload", uploadFile)
 	http.HandleFunc("/download", downloadFile)
 	fmt.Println("Server starting on :8000")
