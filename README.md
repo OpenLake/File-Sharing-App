@@ -119,6 +119,8 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines before submitting 
 
 - 👤 **Ashish Kumar Dash**  
   [@ashish-kumar-dash](https://github.com/ashish-kumar-dash)
+- 👤 **Sri Varshith**  
+  [@Sri-Varshith](https://github.com/Sri-Varshith)
 
 See [MAINTAINERS.md](MAINTAINERS.md) for the full list.
 
