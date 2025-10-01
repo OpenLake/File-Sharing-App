@@ -1,0 +1,21 @@
+# .dockerignore for Flutter frontend
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/
+*.log
+.env

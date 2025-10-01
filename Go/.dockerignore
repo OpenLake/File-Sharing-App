@@ -1,0 +1,8 @@
+# .dockerignore for Go backend
+.env
+*.pdf
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
