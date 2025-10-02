@@ -7,6 +7,14 @@ import 'package:flutter/services.dart';
 
 void main() => runApp(const MyApp());
 
+// Configuration constants
+class AppConfig {
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8000',
+  );
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -34,6 +42,36 @@ class _MyHomePageState extends State<MyHomePage> {
   String? uploadedFilename;
   bool isUploading = false; // Track upload state
   bool isDownloading = false; // Track download state
+
+  void _setUploading(bool value) {
+    if (!mounted) return;
+    setState(() {
+      isUploading = value;
+    });
+  }
+
+  void _setDownloading(bool value) {
+    if (!mounted) return;
+    setState(() {
+      isDownloading = value;
+    });
+  }
+
+  void _showSnack(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor:
+            isError ? Theme.of(context).colorScheme.error : null,
+      ),
+    );
+  }
+
+  String _sanitizeResponseBody(String body) {
+    final firstLine = body.split('\n').first;
+    return firstLine.trim();
+  }
 
   Future<void> share() async {
     await Share.share(
@@ -79,10 +117,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 onPressed: isUploading
                     ? null
                     : () async {
-                        setState(() {
-                          isUploading = true;
-                        });
-                        final currentContext = context;
+                        _setUploading(true);
                         try {
                           FilePickerResult? result =
                               await FilePicker.platform.pickFiles(
@@ -90,33 +125,38 @@ class _MyHomePageState extends State<MyHomePage> {
                             allowMultiple: false,
                           );
 
+                          if (!mounted) return;
+
                           if (result != null && result.files.isNotEmpty) {
                             var request = http.MultipartRequest(
                               'POST',
-                              Uri.parse('http://127.0.0.1:8000/upload'),
+                              Uri.parse('${AppConfig.baseUrl}/upload'),
                             );
+
+                            final selectedFile = result.files.single;
 
                             if (kIsWeb) {
                               // On web, use bytes instead of path
-                              if (result.files.single.bytes != null) {
+                              if (selectedFile.bytes != null) {
                                 request.files.add(http.MultipartFile.fromBytes(
                                   'file',
-                                  result.files.single.bytes!,
-                                  filename: result.files.single.name,
+                                  selectedFile.bytes!,
+                                  filename: selectedFile.name,
                                 ));
-                                uploadedFilename = result.files.single.name;
+                                uploadedFilename = selectedFile.name;
                               } else {
                                 throw Exception('File bytes are unavailable');
                               }
                             } else {
                               // On other platforms, use path
-                              if (result.files.single.path != null) {
-                                request.files
-                                    .add(await http.MultipartFile.fromPath(
-                                  'file',
-                                  result.files.single.path!,
-                                ));
-                                uploadedFilename = result.files.single.name;
+                              if (selectedFile.path != null) {
+                                request.files.add(
+                                  await http.MultipartFile.fromPath(
+                                    'file',
+                                    selectedFile.path!,
+                                  ),
+                                );
+                                uploadedFilename = selectedFile.name;
                               } else {
                                 throw Exception('File path is unavailable');
                               }
@@ -125,46 +165,29 @@ class _MyHomePageState extends State<MyHomePage> {
                             var response = await request.send();
                             final responseBody = await response.stream
                                 .bytesToString(); // Always read body
-                            if (mounted && currentContext.mounted) {
-                              if (response.statusCode == 200) {
-                                setState(() {
-                                  download = responseBody.split('\n').first;
-                                  isUploading = false;
-                                });
-                                ScaffoldMessenger.of(currentContext)
-                                    .showSnackBar(
-                                  const SnackBar(
-                                      content:
-                                          Text("File uploaded successfully")),
-                                );
-                              } else {
-                                setState(() {
-                                  isUploading = false;
-                                });
-                                ScaffoldMessenger.of(currentContext)
-                                    .showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                        "File upload failed: ${response.statusCode} - $responseBody"),
-                                  ),
-                                );
-                              }
+                            if (!mounted) return;
+
+                            if (response.statusCode == 200) {
+                              setState(() {
+                                download = _sanitizeResponseBody(responseBody);
+                                isUploading = false;
+                              });
+                              _showSnack("File uploaded successfully");
+                            } else {
+                              _setUploading(false);
+                              _showSnack(
+                                "File upload failed: ${response.statusCode} - $responseBody",
+                                isError: true,
+                              );
                             }
                           } else {
-                            setState(() {
-                              isUploading = false;
-                            });
+                            uploadedFilename = null;
+                            _setUploading(false);
                           }
                         } catch (e) {
-                          setState(() {
-                            isUploading = false;
-                          });
-                          if (mounted && currentContext.mounted) {
-                            ScaffoldMessenger.of(currentContext).showSnackBar(
-                              SnackBar(
-                                  content: Text("Error uploading file: $e")),
-                            );
-                          }
+                          _setUploading(false);
+                          if (!mounted) return;
+                          _showSnack("Error uploading file: $e", isError: true);
                         }
                       },
                 style: ElevatedButton.styleFrom(
@@ -207,23 +230,12 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   GestureDetector(
                     onTap: () async {
-                      final currentContext = context;
                       if (download.trim().isEmpty) {
-                        if (mounted && currentContext.mounted) {
-                          ScaffoldMessenger.of(currentContext).showSnackBar(
-                            const SnackBar(content: Text("No text to copy")),
-                          );
-                        }
+                        _showSnack("No text to copy", isError: true);
                       } else {
                         await Clipboard.setData(ClipboardData(text: download));
-                        if (mounted && currentContext.mounted) {
-                          ScaffoldMessenger.of(currentContext).showSnackBar(
-                            const SnackBar(
-                              content: Text("Text copied"),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
+                        if (!mounted) return;
+                        _showSnack("Text copied");
                       }
                     },
                     child: const Icon(Icons.copy, color: Colors.blue, size: 32),
@@ -239,61 +251,40 @@ class _MyHomePageState extends State<MyHomePage> {
                 onPressed: isDownloading
                     ? null
                     : () async {
-                        setState(() {
-                          isDownloading = true;
-                        });
-                        final currentContext = context;
+                        _setDownloading(true);
                         try {
                           if (uploadedFilename == null ||
                               uploadedFilename!.isEmpty) {
-                            if (mounted && currentContext.mounted) {
-                              ScaffoldMessenger.of(currentContext).showSnackBar(
-                                const SnackBar(
-                                    content: Text("No file uploaded yet")),
-                              );
-                            }
-                            setState(() {
-                              isDownloading = false;
-                            });
+                            _showSnack("No file uploaded yet", isError: true);
+                            _setDownloading(false);
                             return;
                           }
                           final response = await http.get(
                             Uri.parse(
-                                'http://127.0.0.1:8000/download?filename=$uploadedFilename'),
+                                '${AppConfig.baseUrl}/download?filename=$uploadedFilename'),
                           );
-                          if (mounted && currentContext.mounted) {
-                            if (response.statusCode == 200) {
-                              setState(() {
-                                download = response.body;
-                                isDownloading = false;
-                              });
-                              ScaffoldMessenger.of(currentContext).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        "File URL retrieved successfully")),
-                              );
-                            } else {
-                              setState(() {
-                                isDownloading = false;
-                              });
-                              ScaffoldMessenger.of(currentContext).showSnackBar(
-                                SnackBar(
-                                    content: Text(
-                                        "Download failed: ${response.statusCode}")),
-                              );
-                            }
-                          }
-                        } catch (e) {
-                          setState(() {
-                            isDownloading = false;
-                          });
-                          if (mounted && currentContext.mounted) {
-                            ScaffoldMessenger.of(currentContext).showSnackBar(
-                              SnackBar(
-                                  content:
-                                      Text("Error retrieving file URL: $e")),
+                          if (!mounted) return;
+
+                          if (response.statusCode == 200) {
+                            setState(() {
+                              download = _sanitizeResponseBody(response.body);
+                              isDownloading = false;
+                            });
+                            _showSnack("File URL retrieved successfully");
+                          } else {
+                            _setDownloading(false);
+                            _showSnack(
+                              "Download failed: ${response.statusCode}",
+                              isError: true,
                             );
                           }
+                        } catch (e) {
+                          _setDownloading(false);
+                          if (!mounted) return;
+                          _showSnack(
+                            "Error retrieving file URL: $e",
+                            isError: true,
+                          );
                         }
                       },
                 style: ElevatedButton.styleFrom(

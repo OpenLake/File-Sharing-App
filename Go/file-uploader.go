@@ -24,8 +24,17 @@ func main() {
 	})
 	http.HandleFunc("/upload", uploadFile)
 	http.HandleFunc("/download", downloadFile)
-	fmt.Println("Server starting on :8000")
-	if err := http.ListenAndServe(":8000", nil); err != nil {
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = ":8000"
+	}
+	if port[0] != ':' {
+		port = ":" + port
+	}
+
+	fmt.Printf("Server starting on %s\n", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
 		fmt.Printf("Server failed to start: %v\n", err)
 		os.Exit(1)
 	}
@@ -69,7 +78,6 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 	endpoint := os.Getenv("LOCAL_IP")
 	accessKeyID := os.Getenv("ACCESS_KEY")
 	secretAccessKey := os.Getenv("SECRET_KEY")
-	fmt.Printf("MinIO Config - Endpoint: %s, AccessKey: %s\n", endpoint, accessKeyID) // Log env vars
 	if endpoint == "" || accessKeyID == "" || secretAccessKey == "" {
 		fmt.Println("Missing environment variables")
 		http.Error(w, "Server configuration error", http.StatusInternalServerError)
@@ -106,16 +114,6 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Bucket 'sarvesh' created successfully")
 	} else {
 		fmt.Println("Bucket 'sarvesh' already exists")
-	}
-
-	// Ensure file is seekable
-	if seeker, ok := file.(io.Seeker); ok {
-		_, err = seeker.Seek(0, io.SeekStart)
-		if err != nil {
-			fmt.Printf("Failed to seek file: %v\n", err)
-			http.Error(w, fmt.Sprintf("Failed to seek file: %v", err), http.StatusInternalServerError)
-			return
-		}
 	}
 
 	// Upload to MinIO
@@ -156,6 +154,7 @@ func downloadFile(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+
 	// Get filename from query parameter
 	filename := r.URL.Query().Get("filename")
 	if filename == "" {

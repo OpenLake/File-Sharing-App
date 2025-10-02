@@ -24,11 +24,12 @@ A cross-platform intranet-based file sharing application built with Flutter, GoL
 
 ## Table of Contents
 1. [About the Project](#about-the-project)
-2. [Getting Started](#getting-started)
-3. [Usage](#usage)
-4. [Contributing](#contributing)
-5. [Maintainers](#maintainers)
-6. [License](#license)
+2. [Docker Setup](#docker-setup)
+3. [Getting Started](#getting-started)
+4. [Usage](#usage)
+5. [Contributing](#contributing)
+6. [Maintainers](#maintainers)
+7. [License](#license)
 
 ---
 
@@ -48,47 +49,62 @@ This project enables **direct file sharing over an intranet** without requiring 
 
 ---
 
-## Getting Started <sup>[↥ Back to top](#table-of-contents)</sup>
+## Docker Setup <sup>[↥ Back to top](#table-of-contents)</sup>
+
+This project includes Docker support to easily run the entire stack with a single command.
 
 ### Prerequisites
-Make sure you have the following installed:
-- [Go](https://go.dev) (>=1.18)  
-- [Flutter](https://flutter.dev) (>=3.0)  
-- [MinIO](https://min.io)  
+- Docker and Docker Compose installed
 
+### Quick Start
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/OpenLake/File-Sharing-App.git
+   cd File-Sharing-App
+   ```
+
+2. Start all services:
+   ```bash
+   docker-compose up
+   ```
+
+3. Access the application:
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - MinIO Console: http://localhost:9001
+
+### Environment Variables
+The setup uses these default environment variables:
+- `ACCESS_KEY=minioadmin`
+- `SECRET_KEY=minioadmin123`
+- `LOCAL_IP=minio:9000`
 ---
 
-### 📄 Running MinIO Server
-1. Create a directory for MinIO:
-mkdir ~/minio
+## Getting Started <sup>[↥ Back to top](#table-of-contents)</sup>
 
-2. Run the server on port **9090**:
-minio server ~/minio --console-address :9090
+For local development without Docker, you'll need to set up each service manually. Please refer to the individual service directories for specific setup instructions.
+   go run file-uploader.go
+   ```
 
----
+##### � Setting up Frontend (Flutter)
+1. Navigate to the Flutter directory:
+   ```bash
+   cd filesharing
+   ```
 
-### 📄 Running Backend (Go)
-1. Navigate to the Go backend folder:
-cd backend
+2. Install dependencies:
+   ```bash
+   flutter pub get
+   ```
 
-2. Create a `.env` file with:
-LOCAL_IP="" # Your local IP connected with minio (port 9000)
-ACCESS_KEY="" # MinIO access key
-SECRET_KEY="" # MinIO secret key
-
-3. Install MinIO Go SDK if missing:
-go get github.com/minio/minio-go/v7
-
-4. Start backend:
-go run file-uploader.go
-
----
-
-### 📄 Running Frontend (Flutter)
-1. Open the Flutter project in **Android Studio**.  
-2. Update the upload/download endpoint IPs in the code with your local IP (port `8000`).  
 3. Run the application:
-flutter run
+   ```bash
+   # For web
+   flutter run -d web-server --web-port 3000
+   
+   # For mobile (requires device/emulator)
+   flutter run
+   ```
 
 ---
 
@@ -99,12 +115,56 @@ Once the setup is complete:
 - Files are stored in MinIO over your intranet.  
 - Download files seamlessly on other connected devices.  
 
-Example (start backend in one terminal):  
-go run file-uploader.go
+### 🐳 Using Docker Setup
+1. Start the application stack:
+   ```bash
+   docker-compose up -d
+   ```
 
+2. Open your web browser and navigate to http://localhost:3000
+
+3. Upload and share files across your network!
+
+### 🛠️ Using Manual Setup
+Example (start backend in one terminal):  
+```bash
+cd Go
+go run file-uploader.go
+```
 
 And then run the frontend Flutter app:
-flutter run
+```bash
+cd filesharing
+flutter run -d web-server --web-port 3000
+```
+
+---
+
+## Troubleshooting <sup>[↥ Back to top](#table-of-contents)</sup>
+
+### Docker Issues
+- **Port conflicts:** If ports 3000, 8000, 9000, or 9001 are in use, modify the port mappings in `docker-compose.yml`
+- **Build failures:** Ensure Docker has enough memory allocated (recommended: 4GB+)
+- **Permission issues:** On Linux, you may need to run Docker commands with `sudo`
+
+### Common Issues
+- **Frontend can't connect to backend:** Verify the `API_BASE_URL` is correctly set
+- **MinIO connection fails:** Check if MinIO service is running and accessible
+- **File upload fails:** Ensure proper CORS headers and file size limits
+
+### Logs and Debugging
+```bash
+# View all service logs
+docker-compose logs
+
+# View specific service logs
+docker-compose logs backend
+docker-compose logs frontend
+docker-compose logs minio
+
+# Follow logs in real-time
+docker-compose logs -f
+```
 
 ---
 
