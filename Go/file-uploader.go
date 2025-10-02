@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +16,18 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
+// EncryptionMetadata stores information about encrypted files
+type EncryptionMetadata struct {
+	Version          string `json:"version"`
+	Algorithm        string `json:"algorithm"`
+	IV               string `json:"iv"`
+	Key              string `json:"key"`
+	OriginalFilename string `json:"originalFilename"`
+	FileHash         string `json:"fileHash"`
+	OriginalSize     int    `json:"originalSize"`
+	Timestamp        string `json:"timestamp"`
+}
+
 func main() {
 	if err := godotenv.Load(); err != nil {
 		fmt.Printf("Error loading .env file: %v\n", err)
@@ -24,6 +38,7 @@ func main() {
 	})
 	http.HandleFunc("/upload", uploadFile)
 	http.HandleFunc("/download", downloadFile)
+	http.HandleFunc("/metadata", getMetadata)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -72,7 +87,20 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	fmt.Printf("Received file: %s, Size: %d\n", h.Filename, h.Size)
+	// Get encryption metadata if provided
+	metadataStr := r.FormValue("metadata")
+	var metadata EncryptionMetadata
+	if metadataStr != "" {
+		if err := json.Unmarshal([]byte(metadataStr), &metadata); err != nil {
+			fmt.Printf("Failed to parse metadata: %v\n", err)
+			http.Error(w, fmt.Sprintf("Failed to parse metadata: %v", err), http.StatusBadRequest)
+			return
+		}
+		fmt.Printf("Received encrypted file: %s (original: %s), Size: %d\n",
+			h.Filename, metadata.OriginalFilename, h.Size)
+	} else {
+		fmt.Printf("Received file: %s, Size: %d\n", h.Filename, h.Size)
+	}
 
 	// Environment variables
 	endpoint := os.Getenv("LOCAL_IP")
@@ -126,6 +154,22 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Printf("File uploaded to MinIO: %s (size: %d)\n", h.Filename, uploadInfo.Size)
+
+	// If metadata exists, store it separately
+	if metadataStr != "" {
+		metadataFilename := h.Filename + ".metadata.json"
+		metadataReader := io.NopCloser(bytes.NewReader([]byte(metadataStr)))
+		_, err = minioClient.PutObject(ctx, "sarvesh", metadataFilename, metadataReader,
+			int64(len(metadataStr)), minio.PutObjectOptions{
+				ContentType: "application/json",
+			})
+		if err != nil {
+			fmt.Printf("Warning: Failed to upload metadata: %v\n", err)
+			// Continue even if metadata upload fails
+		} else {
+			fmt.Printf("Metadata uploaded: %s\n", metadataFilename)
+		}
+	}
 
 	// Generate presigned URL
 	reqParams := make(url.Values)
@@ -195,6 +239,68 @@ func downloadFile(w http.ResponseWriter, r *http.Request) {
 
 	// Write presigned URL to response
 	if _, err := io.WriteString(w, presignedURL.String()); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to write response: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
+func getMetadata(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Get filename from query parameter
+	filename := r.URL.Query().Get("filename")
+	if filename == "" {
+		http.Error(w, "Filename is required", http.StatusBadRequest)
+		return
+	}
+
+	// Load environment variables
+	endpoint := os.Getenv("LOCAL_IP")
+	accessKeyID := os.Getenv("ACCESS_KEY")
+	secretAccessKey := os.Getenv("SECRET_KEY")
+	if endpoint == "" || accessKeyID == "" || secretAccessKey == "" {
+		http.Error(w, "Server configuration error", http.StatusInternalServerError)
+		return
+	}
+
+	// Create a MinIO client
+	minioClient, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure: false,
+	})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create MinIO client: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Create context
+	ctx := context.Background()
+
+	// Get metadata file
+	metadataFilename := filename + ".metadata.json"
+	object, err := minioClient.GetObject(ctx, "sarvesh", metadataFilename, minio.GetObjectOptions{})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get metadata: %v", err), http.StatusNotFound)
+		return
+	}
+	defer object.Close()
+
+	// Read metadata content
+	buf := new(bytes.Buffer)
+	if _, err := buf.ReadFrom(object); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to read metadata: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Set content type and write response
+	w.Header().Set("Content-Type", "application/json")
+	if _, err := w.Write(buf.Bytes()); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to write response: %v", err), http.StatusInternalServerError)
 		return
 	}

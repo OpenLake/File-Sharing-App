@@ -60,6 +60,11 @@ dependencies:
   
   # Share functionality (updated package replacing flutter_share)
   share_plus: ^9.0.0
+  
+  # Encryption packages for end-to-end encryption
+  encrypt: ^5.0.3
+  pointycastle: ^3.9.1
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

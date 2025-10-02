@@ -41,11 +41,15 @@ This project enables **direct file sharing over an intranet** without requiring 
 
 ### ✨ Features
 - Cross-platform intranet file sharing between multiple devices.  
+- **End-to-End Encryption** with AES-256-GCM for secure file transfers.  
+- Client-side encryption and decryption for maximum security.  
+- File integrity verification with SHA-256 hashing.  
 - Powered by **MinIO** (object storage server) for efficient file handling.  
 - **Tech Stack:**  
   - **Frontend:** Flutter  
   - **Backend:** GoLang  
   - **File Storage:** MinIO  
+  - **Encryption:** AES-256-GCM with ECDH key exchange support  
 
 ---
 
@@ -112,8 +116,17 @@ For local development without Docker, you'll need to set up each service manuall
 
 Once the setup is complete:  
 - Upload files from one device via the Flutter app.  
-- Files are stored in MinIO over your intranet.  
+- Files are automatically encrypted client-side using AES-256-GCM before upload.  
+- Files are stored securely in MinIO over your intranet.  
 - Download files seamlessly on other connected devices.  
+- Files are automatically decrypted client-side after download with integrity verification.  
+
+### 🔒 Security Features
+- **Client-side encryption**: Files are encrypted before leaving your device
+- **AES-256-GCM**: Industry-standard encryption algorithm
+- **Integrity verification**: SHA-256 hashing ensures files haven't been tampered with
+- **Unique keys**: Each file gets a unique encryption key
+- See [ENCRYPTION.md](ENCRYPTION.md) for detailed security documentation  
 
 ### 🐳 Using Docker Setup
 1. Start the application stack:

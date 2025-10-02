@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
+import 'services/encryption_service.dart';
 
 void main() => runApp(const MyApp());
 
@@ -42,6 +43,7 @@ class _MyHomePageState extends State<MyHomePage> {
   String? uploadedFilename;
   bool isUploading = false; // Track upload state
   bool isDownloading = false; // Track download state
+  Map<String, dynamic>? encryptionMetadata; // Store encryption metadata
 
   void _setUploading(bool value) {
     if (!mounted) return;
@@ -128,39 +130,55 @@ class _MyHomePageState extends State<MyHomePage> {
                           if (!mounted) return;
 
                           if (result != null && result.files.isNotEmpty) {
+                            final selectedFile = result.files.single;
+                            Uint8List? fileBytes;
+
+                            if (kIsWeb) {
+                              if (selectedFile.bytes != null) {
+                                fileBytes = selectedFile.bytes!;
+                              } else {
+                                throw Exception('File bytes are unavailable');
+                              }
+                            } else {
+                              if (selectedFile.path != null) {
+                                fileBytes = await selectedFile.xFile.readAsBytes();
+                              } else {
+                                throw Exception('File path is unavailable');
+                              }
+                            }
+
+                            // Encrypt the file
+                            _showSnack("Encrypting file...");
+                            final encryptionResult = EncryptionService.encryptFile(fileBytes);
+                            final encryptedBytes = Uint8List.fromList(encryptionResult['encryptedBytes']);
+                            final originalHash = EncryptionService.generateFileHash(fileBytes);
+
+                            // Store encryption metadata locally
+                            encryptionMetadata = EncryptionService.createMetadata(
+                              iv: encryptionResult['iv'],
+                              key: encryptionResult['key'],
+                              originalFilename: selectedFile.name,
+                              fileHash: originalHash,
+                              originalSize: fileBytes.length,
+                            );
+
+                            // Create encrypted filename
+                            final encryptedFilename = '${selectedFile.name}.encrypted';
+                            
                             var request = http.MultipartRequest(
                               'POST',
                               Uri.parse('${AppConfig.baseUrl}/upload'),
                             );
 
-                            final selectedFile = result.files.single;
+                            // Upload encrypted file
+                            request.files.add(http.MultipartFile.fromBytes(
+                              'file',
+                              encryptedBytes,
+                              filename: encryptedFilename,
+                            ));
 
-                            if (kIsWeb) {
-                              // On web, use bytes instead of path
-                              if (selectedFile.bytes != null) {
-                                request.files.add(http.MultipartFile.fromBytes(
-                                  'file',
-                                  selectedFile.bytes!,
-                                  filename: selectedFile.name,
-                                ));
-                                uploadedFilename = selectedFile.name;
-                              } else {
-                                throw Exception('File bytes are unavailable');
-                              }
-                            } else {
-                              // On other platforms, use path
-                              if (selectedFile.path != null) {
-                                request.files.add(
-                                  await http.MultipartFile.fromPath(
-                                    'file',
-                                    selectedFile.path!,
-                                  ),
-                                );
-                                uploadedFilename = selectedFile.name;
-                              } else {
-                                throw Exception('File path is unavailable');
-                              }
-                            }
+                            // Add encryption metadata as a separate field
+                            request.fields['metadata'] = EncryptionService.serializeMetadata(encryptionMetadata!);
 
                             var response = await request.send();
                             final responseBody = await response.stream
@@ -170,9 +188,10 @@ class _MyHomePageState extends State<MyHomePage> {
                             if (response.statusCode == 200) {
                               setState(() {
                                 download = _sanitizeResponseBody(responseBody);
+                                uploadedFilename = encryptedFilename;
                                 isUploading = false;
                               });
-                              _showSnack("File uploaded successfully");
+                              _showSnack("File encrypted and uploaded successfully");
                             } else {
                               _setUploading(false);
                               _showSnack(
@@ -259,22 +278,63 @@ class _MyHomePageState extends State<MyHomePage> {
                             _setDownloading(false);
                             return;
                           }
-                          final response = await http.get(
+                          
+                          if (encryptionMetadata == null) {
+                            _showSnack("No encryption metadata available", isError: true);
+                            _setDownloading(false);
+                            return;
+                          }
+
+                          // Get the presigned URL
+                          final urlResponse = await http.get(
                             Uri.parse(
                                 '${AppConfig.baseUrl}/download?filename=$uploadedFilename'),
                           );
                           if (!mounted) return;
 
-                          if (response.statusCode == 200) {
-                            setState(() {
-                              download = _sanitizeResponseBody(response.body);
-                              isDownloading = false;
-                            });
-                            _showSnack("File URL retrieved successfully");
+                          if (urlResponse.statusCode == 200) {
+                            final fileUrl = _sanitizeResponseBody(urlResponse.body);
+                            
+                            // Download the encrypted file
+                            _showSnack("Downloading encrypted file...");
+                            final fileResponse = await http.get(Uri.parse(fileUrl));
+                            
+                            if (fileResponse.statusCode == 200) {
+                              // Decrypt the file
+                              _showSnack("Decrypting file...");
+                              final encryptedBytes = fileResponse.bodyBytes;
+                              
+                              final decryptedBytes = EncryptionService.decryptFile(
+                                encryptedBytes,
+                                encryptionMetadata!['iv'],
+                                encryptionMetadata!['key'],
+                              );
+
+                              // Verify file integrity
+                              final decryptedHash = EncryptionService.generateFileHash(decryptedBytes);
+                              if (decryptedHash != encryptionMetadata!['fileHash']) {
+                                throw Exception('File integrity check failed - file may be corrupted');
+                              }
+
+                              setState(() {
+                                download = fileUrl;
+                                isDownloading = false;
+                              });
+                              
+                              _showSnack(
+                                "File decrypted successfully! Original: ${encryptionMetadata!['originalFilename']}"
+                              );
+                            } else {
+                              _setDownloading(false);
+                              _showSnack(
+                                "File download failed: ${fileResponse.statusCode}",
+                                isError: true,
+                              );
+                            }
                           } else {
                             _setDownloading(false);
                             _showSnack(
-                              "Download failed: ${response.statusCode}",
+                              "URL retrieval failed: ${urlResponse.statusCode}",
                               isError: true,
                             );
                           }
@@ -282,7 +342,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           _setDownloading(false);
                           if (!mounted) return;
                           _showSnack(
-                            "Error retrieving file URL: $e",
+                            "Error during download/decryption: $e",
                             isError: true,
                           );
                         }
