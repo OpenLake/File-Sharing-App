@@ -24,7 +24,7 @@ A cross-platform intranet-based file sharing application built with Flutter, GoL
 
 ## Table of Contents
 1. [About the Project](#about-the-project)
-2. [Docker Setup (Recommended)](#docker-setup-recommended)
+2. [Docker Setup](#docker-setup)
 3. [Getting Started](#getting-started)
 4. [Usage](#usage)
 5. [Contributing](#contributing)
@@ -49,195 +49,40 @@ This project enables **direct file sharing over an intranet** without requiring 
 
 ---
 
-## Docker Setup (Recommended) <sup>[↥ Back to top](#table-of-contents)</sup>
+## Docker Setup <sup>[↥ Back to top](#table-of-contents)</sup>
 
-The quickest way to get the entire File Sharing Application running is using Docker Compose. This will spin up all three services (Backend, Frontend, and MinIO) with a single command.
+This project includes Docker support to easily run the entire stack with a single command.
 
-### 🐳 Prerequisites
-- Docker and Docker Compose installed on your system
-- At least 2GB of free disk space
-- Ports 3000, 8000, 9000, and 9001 available on your machine
+### Prerequisites
+- Docker and Docker Compose installed
 
-### 🚀 Quick Start
-1. **Clone the repository:**
+### Quick Start
+1. Clone the repository:
    ```bash
    git clone https://github.com/OpenLake/File-Sharing-App.git
    cd File-Sharing-App
    ```
 
-2. **Start all services:**
+2. Start all services:
    ```bash
-   docker-compose up -d
+   docker-compose up
    ```
 
-3. **Access the services:**
-   - **Frontend:** http://localhost:3000 (Web interface for file upload/download)
-   - **Backend API:** http://localhost:8000 (REST API endpoints)
-   - **MinIO Console:** http://localhost:9001 (Object storage admin interface)
-   - **MinIO API:** http://localhost:9000 (Object storage API)
+3. Access the application:
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - MinIO Console: http://localhost:9001
 
-### 🔧 Environment Variables
-The Docker setup uses the following default environment variables:
-- `ACCESS_KEY=minioadmin` (MinIO access key)
-- `SECRET_KEY=minioadmin123` (MinIO secret key)
-- `LOCAL_IP=minio:9000` (MinIO endpoint for backend)
-
-### 📝 Available Commands
-```bash
-# Start all services
-docker-compose up -d
-
-# View service status
-docker-compose ps
-
-# View logs
-docker-compose logs [service-name]
-
-# Stop all services
-docker-compose down
-
-# Stop and remove volumes (deletes uploaded files)
-docker-compose down -v
-
-# Rebuild services
-docker-compose up -d --build
-```
-
-### 🧪 Testing the Setup
-1. **Health Check:**
-   ```bash
-   curl http://localhost:8000/health
-   # Should return "OK"
-   ```
-
-2. **Upload a file:**
-   ```bash
-   curl -X POST -F "file=@your-file.txt" http://localhost:8000/upload
-   # Returns a presigned download URL
-   ```
-
-3. **Download a file:**
-   ```bash
-   curl "http://localhost:8000/download?filename=your-file.txt"
-   # Returns a presigned download URL
-   ```
-
-### 🏗️ Architecture Overview
-The Docker setup includes:
-- **Backend Service** (Go): Handles file upload/download operations and integrates with MinIO
-- **Frontend Service** (Static HTML): Simple web interface for testing file operations
-- **MinIO Service**: Object storage compatible with AWS S3 API
-- **Custom Network**: Enables secure inter-service communication
-- **Persistent Volume**: Stores uploaded files across container restarts
-
+### Environment Variables
+The setup uses these default environment variables:
+- `ACCESS_KEY=minioadmin`
+- `SECRET_KEY=minioadmin123`
+- `LOCAL_IP=minio:9000`
 ---
 
 ## Getting Started <sup>[↥ Back to top](#table-of-contents)</sup>
 
-### 🐳 Quick Start with Docker (Recommended)
-
-The easiest way to get the entire stack running is using Docker Compose:
-
-#### Prerequisites
-- Docker and Docker Compose installed on your system
-- At least 2GB of free disk space
-
-#### Steps
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/OpenLake/File-Sharing-App.git
-   cd File-Sharing-App
-   ```
-
-2. **Start all services:**
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Access the application:**
-   - **Frontend (Flutter Web App):** http://localhost:3000
-   - **Backend API:** http://localhost:8000
-   - **MinIO Console:** http://localhost:9001 (admin/minioadmin123)
-
-4. **Stop all services:**
-   ```bash
-   docker-compose down
-   ```
-
-#### Environment Variables
-The application uses the following environment variables (see `.env.example`):
-
-| Variable | Description | Default Value |
-|----------|-------------|---------------|
-| `MINIO_ROOT_USER` | MinIO admin username | `minioadmin` |
-| `MINIO_ROOT_PASSWORD` | MinIO admin password | `minioadmin123` |
-| `LOCAL_IP` | MinIO endpoint for backend | `minio:9000` |
-| `ACCESS_KEY` | MinIO access key | `minioadmin` |
-| `SECRET_KEY` | MinIO secret key | `minioadmin123` |
-| `API_BASE_URL` | Backend API URL for frontend | `http://localhost:8000` |
-
-#### Development Mode
-For development with file watching and easier debugging:
-```bash
-# Copy environment variables
-cp .env.example .env
-
-# Start only MinIO and backend for development
-docker-compose -f docker-compose.dev.yml up -d
-
-# Run Flutter app locally
-cd filesharing
-flutter run -d web-server --web-port 3000
-```
-
----
-
-### 🛠️ Manual Setup (Alternative)
-
-If you prefer to run services manually without Docker:
-
-#### Prerequisites
-- **MinIO Server** [Download](https://min.io/download)  
-- **GoLang** (v1.19+) [Download](https://golang.org/dl/)  
-- **Flutter** (v3.10+) [Download](https://flutter.dev/docs/get-started/install)  
-
-#### Steps
-
-##### 🗄️ Setting up MinIO
-1. Download and start MinIO:
-   ```bash
-   # Linux/macOS
-   wget https://dl.min.io/server/minio/release/linux-amd64/minio
-   chmod +x minio
-   ./minio server ~/minio-data --console-address ":9001"
-   
-   # Windows
-   # Download minio.exe and run:
-   # minio.exe server C:\minio-data --console-address ":9001"
-   ```
-
-2. Access MinIO Console at http://localhost:9001 (admin/minioadmin123)
-
-##### ⚙️ Setting up Backend (GoLang)
-1. Navigate to the Go directory:
-   ```bash
-   cd Go
-   ```
-
-2. Create a `.env` file:
-   ```bash
-   LOCAL_IP=localhost:9000
-   ACCESS_KEY=minioadmin
-   SECRET_KEY=minioadmin123
-   ```
-
-3. Install dependencies:
-   ```bash
-   go mod tidy
-   ```
-
-4. Start backend:
-   ```bash
+For local development without Docker, you'll need to set up each service manually. Please refer to the individual service directories for specific setup instructions.
    go run file-uploader.go
    ```
 

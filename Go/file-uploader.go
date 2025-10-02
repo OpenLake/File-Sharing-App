@@ -2,16 +2,11 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -19,154 +14,30 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-// MinIO configuration
-type minioConfig struct {
-	endpoint        string
-	accessKeyID     string
-	secretAccessKey string
-}
-
-const (
-	defaultBucket  = "sarvesh"
-	maxUploadSize  = 32 << 20 // 32 MiB
-	presignExpires = 24 * time.Hour
-	maxFilenameLen = 255 // Maximum filename length
-)
-
-// dangerousChars contains characters that should be sanitized from filenames
-// to prevent path traversal, command injection, and other security issues:
-// - ".." : parent directory traversal
-// - "/" and "\\" : path separators
-// - "`" : command substitution in shells
-// - "|" : pipe operator in shells
-// - ">" and "<" : redirection operators
-// - ":" : reserved in Windows paths
-// - "\"" : string delimiter that can break commands
-// - ";" : command separator in shells
-// - "&" : background process operator
-// - "$" : variable expansion in shells
-// - "*" and "?" : wildcards that can expand to multiple files
-// - "'" : single quote for command injection
-// - "=" : can interfere with environment variable assignments
-var dangerousChars = strings.NewReplacer(
-	"..", "_",
-	"/", "_",
-	"\\", "_",
-	"`", "_",
-	"|", "_",
-	">", "_",
-	"<", "_",
-	":", "_",
-	"\"", "_",
-	";", "_",
-	"&", "_",
-	"$", "_",
-	"*", "_",
-	"?", "_",
-	"'", "_",
-	"=", "_",
-)
-
-// getMinioConfig loads MinIO configuration from environment
-func getMinioConfig() (*minioConfig, error) {
-	endpoint := os.Getenv("LOCAL_IP")
-	accessKeyID := os.Getenv("ACCESS_KEY")
-	secretAccessKey := os.Getenv("SECRET_KEY")
-
-	if endpoint == "" || accessKeyID == "" || secretAccessKey == "" {
-		return nil, fmt.Errorf("missing environment variables")
-	}
-
-	return &minioConfig{
-		endpoint:        endpoint,
-		accessKeyID:     accessKeyID,
-		secretAccessKey: secretAccessKey,
-	}, nil
-}
-
-// createMinioClient creates and returns a MinIO client
-func createMinioClient(cfg *minioConfig) (*minio.Client, error) {
-	return minio.New(cfg.endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.accessKeyID, cfg.secretAccessKey, ""),
-		Secure: false,
-	})
-}
-
-// ensureBucket checks if bucket exists and creates it if needed
-func ensureBucket(ctx context.Context, client *minio.Client, bucketName string) error {
-	exists, err := client.BucketExists(ctx, bucketName)
-	if err != nil {
-		return fmt.Errorf("failed to check bucket: %w", err)
-	}
-
-	if !exists {
-		err = client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{Region: ""})
-		if err != nil {
-			return fmt.Errorf("failed to create bucket: %w", err)
-		}
-		fmt.Printf("Bucket '%s' created successfully\n", bucketName)
-	} else {
-		fmt.Printf("Bucket '%s' already exists\n", bucketName)
-	}
-
-	return nil
-}
-
 func main() {
 	if err := godotenv.Load(); err != nil {
-		fmt.Printf("(warn) unable to load .env file: %v\n", err)
+		fmt.Printf("Error loading .env file: %v\n", err)
 	}
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "OK")
 	})
-	mux.HandleFunc("/upload", uploadFile)
-	mux.HandleFunc("/download", downloadFile)
+	http.HandleFunc("/upload", uploadFile)
+	http.HandleFunc("/download", downloadFile)
 
-	if err := startServer(mux); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = ":8000"
+	}
+	if port[0] != ':' {
+		port = ":" + port
+	}
+
+	fmt.Printf("Server starting on %s\n", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
 		fmt.Printf("Server failed to start: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-// startServer starts the HTTP server with optional TLS + sensible timeouts
-func startServer(handler http.Handler) error {
-	port := getEnv("PORT", ":8000")
-	useTLS, _ := strconv.ParseBool(os.Getenv("USE_TLS"))
-	certFile := os.Getenv("TLS_CERT_FILE")
-	keyFile := os.Getenv("TLS_KEY_FILE")
-
-	srv := &http.Server{
-		Addr:              port,
-		Handler:           handler,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      120 * time.Second,
-		IdleTimeout:       120 * time.Second,
-		MaxHeaderBytes:    1 << 20, // 1MB
-	}
-
-	if useTLS {
-		if certFile == "" || keyFile == "" {
-			return errors.New("USE_TLS=true but TLS_CERT_FILE or TLS_KEY_FILE not set")
-		}
-		fmt.Printf("Server starting on %s with TLS enabled\n", port)
-		return srv.ListenAndServeTLS(certFile, keyFile)
-	}
-	fmt.Printf("Server starting on %s over HTTP (enable TLS in production: set USE_TLS=true)\n", port)
-	return srv.ListenAndServe()
-}
-
-func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		if !strings.HasPrefix(v, ":") && strings.HasPrefix(fallback, ":") {
-			return ":" + v
-		}
-		return v
-	}
-	return fallback
 }
 
 func uploadFile(w http.ResponseWriter, r *http.Request) {
@@ -185,118 +56,100 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enforce maximum request body size early (slightly above declared limit for form overhead)
-	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize+1<<20)
+	// Parse form data
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		fmt.Printf("Failed to parse form: %v\n", err)
+		http.Error(w, fmt.Sprintf("Failed to parse form: %v", err), http.StatusBadRequest)
+		return
+	}
 
-	// Parse and get file from request
-	file, header, err := parseUploadRequest(r)
+	// Get file
+	file, h, err := r.FormFile("file")
 	if err != nil {
-		fmt.Printf("Failed to parse request: %v\n", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		fmt.Printf("Failed to get file: %v\n", err)
+		http.Error(w, fmt.Sprintf("Failed to get file: %v", err), http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
 
-	// Basic filename sanitization (strip paths, disallow traversal)
-	header.Filename = sanitizeFilename(header.Filename)
+	fmt.Printf("Received file: %s, Size: %d\n", h.Filename, h.Size)
 
-	if header.Size > maxUploadSize {
-		http.Error(w, fmt.Sprintf("file too large: %d bytes (limit %d)", header.Size, maxUploadSize), http.StatusRequestEntityTooLarge)
+	// Environment variables
+	endpoint := os.Getenv("LOCAL_IP")
+	accessKeyID := os.Getenv("ACCESS_KEY")
+	secretAccessKey := os.Getenv("SECRET_KEY")
+	if endpoint == "" || accessKeyID == "" || secretAccessKey == "" {
+		fmt.Println("Missing environment variables")
+		http.Error(w, "Server configuration error", http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Printf("Received file: %s, Size: %d bytes\n", header.Filename, header.Size)
-
-	// Handle file upload to MinIO
-	if err := handleFileUpload(w, file, header); err != nil {
-		fmt.Printf("Upload failed: %v\n", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// parseUploadRequest parses multipart form and extracts file
-
-func parseUploadRequest(r *http.Request) (multipart.File, *multipart.FileHeader, error) {
-	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
-		return nil, nil, fmt.Errorf("failed to parse form: %w", err)
-	}
-
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get file: %w", err)
-	}
-
-	// Ensure file is seekable
-	if seeker, ok := file.(io.Seeker); ok {
-		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-			file.Close()
-			return nil, nil, fmt.Errorf("failed to seek file: %w", err)
-		}
-	}
-
-	return file, header, nil
-}
-
-// handleFileUpload manages the complete file upload workflow
-func handleFileUpload(w http.ResponseWriter, file io.Reader, header *multipart.FileHeader) error {
-	// Get MinIO configuration
-	cfg, err := getMinioConfig()
-	if err != nil {
-		return fmt.Errorf("configuration error: %w", err)
-	}
-	fmt.Printf("MinIO Config - Endpoint: %s, AccessKey: %s\n", cfg.endpoint, cfg.accessKeyID)
-
 	// Create MinIO client
-	minioClient, err := createMinioClient(cfg)
+	minioClient, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure: false,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to create MinIO client: %w", err)
+		fmt.Printf("Failed to create MinIO client: %v\n", err)
+		http.Error(w, fmt.Sprintf("Failed to create MinIO client: %v", err), http.StatusInternalServerError)
+		return
 	}
 
 	ctx := context.Background()
-	bucketName := defaultBucket
 
-	// Ensure bucket exists
-	if err := ensureBucket(ctx, minioClient, bucketName); err != nil {
-		return err
+	// Check and create bucket
+	exists, err := minioClient.BucketExists(ctx, "sarvesh")
+	if err != nil {
+		fmt.Printf("Failed to check bucket: %v\n", err)
+		http.Error(w, fmt.Sprintf("Failed to check bucket: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		err = minioClient.MakeBucket(ctx, "sarvesh", minio.MakeBucketOptions{Region: ""})
+		if err != nil {
+			fmt.Printf("Failed to create bucket: %v\n", err)
+			http.Error(w, fmt.Sprintf("Failed to create bucket: %v", err), http.StatusInternalServerError)
+			return
+		}
+		fmt.Println("Bucket 'sarvesh' created successfully")
+	} else {
+		fmt.Println("Bucket 'sarvesh' already exists")
 	}
 
 	// Upload to MinIO
-	uploadInfo, err := minioClient.PutObject(ctx, bucketName, header.Filename, file, header.Size, minio.PutObjectOptions{
+	uploadInfo, err := minioClient.PutObject(ctx, "sarvesh", h.Filename, file, h.Size, minio.PutObjectOptions{
 		ContentType: "application/octet-stream",
 	})
 	if err != nil {
-		return fmt.Errorf("failed to upload to MinIO: %w", err)
+		fmt.Printf("Failed to upload file to MinIO: %v\n", err)
+		http.Error(w, fmt.Sprintf("Failed to upload file to MinIO: %v", err), http.StatusInternalServerError)
+		return
 	}
-	fmt.Printf("File uploaded to MinIO: %s (size: %d)\n", header.Filename, uploadInfo.Size)
+	fmt.Printf("File uploaded to MinIO: %s (size: %d)\n", h.Filename, uploadInfo.Size)
 
-	// Generate and return presigned URL
-	return generateAndWriteURL(w, minioClient, bucketName, header.Filename)
-}
-
-// generateAndWriteURL creates a presigned URL and writes it to response
-func generateAndWriteURL(w http.ResponseWriter, client *minio.Client, bucket, filename string) error {
-	ctx := context.Background()
+	// Generate presigned URL
 	reqParams := make(url.Values)
-	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=%q", filename))
-
-	presignedURL, err := client.PresignedGetObject(ctx, bucket, filename, presignExpires, reqParams)
+	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=%q", h.Filename))
+	presignedURL, err := minioClient.PresignedGetObject(ctx, "sarvesh", h.Filename, time.Second*24*60*60, reqParams)
 	if err != nil {
-		return fmt.Errorf("failed to generate presigned URL: %w", err)
+		fmt.Printf("Failed to generate presigned URL: %v\n", err)
+		http.Error(w, fmt.Sprintf("Failed to generate presigned URL: %v", err), http.StatusInternalServerError)
+		return
 	}
 
+	// Write response
 	if _, err := io.WriteString(w, presignedURL.String()); err != nil {
-		return fmt.Errorf("failed to write response: %w", err)
+		fmt.Printf("Failed to write response: %v\n", err)
+		http.Error(w, fmt.Sprintf("Failed to write response: %v", err), http.StatusInternalServerError)
+		return
 	}
-
 	fmt.Fprintf(w, "\nFile uploaded successfully")
-	return nil
 }
 
 func downloadFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
 		return
@@ -309,49 +162,40 @@ func downloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get MinIO configuration
-	cfg, err := getMinioConfig()
-	if err != nil {
+	// Load environment variables
+	endpoint := os.Getenv("LOCAL_IP")
+	accessKeyID := os.Getenv("ACCESS_KEY")
+	secretAccessKey := os.Getenv("SECRET_KEY")
+	if endpoint == "" || accessKeyID == "" || secretAccessKey == "" {
 		http.Error(w, "Server configuration error", http.StatusInternalServerError)
 		return
 	}
 
-	// Create MinIO client
-	minioClient, err := createMinioClient(cfg)
+	// Create a MinIO client
+	minioClient, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure: false,
+	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create MinIO client: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Generate and write presigned URL
-	if err := generateAndWriteURL(w, minioClient, defaultBucket, filename); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
+	// Create context
+	ctx := context.Background()
 
-// sanitizeFilename ensures the uploaded filename is safe and doesn't contain path traversal
-// or other dangerous characters. It performs the following steps:
-// 1. Extracts the base filename (removes any path components)
-// 2. Trims whitespace
-// 3. Generates a default name if the result is empty or invalid
-// 4. Replaces dangerous characters with underscores using the dangerousChars replacer
-// 5. Limits the filename length to maxFilenameLen characters
-func sanitizeFilename(name string) string {
-	// Extract base filename and trim whitespace
-	name = filepath.Base(strings.TrimSpace(name))
-	
-	// Generate default name if empty or invalid
-	if name == "." || name == "" {
-		return fmt.Sprintf("upload-%d.bin", time.Now().UnixNano())
+	// Generate presigned URL
+	reqParams := make(url.Values)
+	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	presignedURL, err := minioClient.PresignedGetObject(ctx, "sarvesh", filename, time.Second*24*60*60, reqParams)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to generate presigned URL: %v", err), http.StatusInternalServerError)
+		return
 	}
-	
-	// Replace all dangerous characters with underscores
-	cleaned := dangerousChars.Replace(name)
-	
-	// Limit filename length to prevent filesystem issues
-	if len(cleaned) > maxFilenameLen {
-		cleaned = cleaned[:maxFilenameLen]
+
+	// Write presigned URL to response
+	if _, err := io.WriteString(w, presignedURL.String()); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to write response: %v", err), http.StatusInternalServerError)
+		return
 	}
-	
-	return cleaned
 }
