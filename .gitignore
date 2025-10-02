@@ -1,5 +1,28 @@
+# IDE
 .vscode
 
-
-#Ignore vscode AI rules
+# AI instructions
 .github/instructions/codacy.instructions.md
+
+# Go build artifacts
+Go/file-uploader
+Go/Go
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Flutter/Dart
+filesharing/.dart_tool/
+filesharing/.flutter-plugins
+filesharing/.flutter-plugins-dependencies
+filesharing/.packages
+filesharing/build/
+filesharing/.pub-cache/
+filesharing/.pub/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
