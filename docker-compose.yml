@@ -13,7 +13,7 @@ services:
       - minio_data:/data
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "timeout", "5s", "bash", "-c", ":> /dev/tcp/localhost/9000"]
+      test: ["CMD", "curl", "--fail", "http://localhost:9000/minio/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 3

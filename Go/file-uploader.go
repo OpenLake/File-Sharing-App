@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,6 +30,41 @@ const (
 	defaultBucket  = "sarvesh"
 	maxUploadSize  = 32 << 20 // 32 MiB
 	presignExpires = 24 * time.Hour
+	maxFilenameLen = 255 // Maximum filename length
+)
+
+// dangerousChars contains characters that should be sanitized from filenames
+// to prevent path traversal, command injection, and other security issues:
+// - ".." : parent directory traversal
+// - "/" and "\\" : path separators
+// - "`" : command substitution in shells
+// - "|" : pipe operator in shells
+// - ">" and "<" : redirection operators
+// - ":" : reserved in Windows paths
+// - "\"" : string delimiter that can break commands
+// - ";" : command separator in shells
+// - "&" : background process operator
+// - "$" : variable expansion in shells
+// - "*" and "?" : wildcards that can expand to multiple files
+// - "'" : single quote for command injection
+// - "=" : can interfere with environment variable assignments
+var dangerousChars = strings.NewReplacer(
+	"..", "_",
+	"/", "_",
+	"\\", "_",
+	"`", "_",
+	"|", "_",
+	">", "_",
+	"<", "_",
+	":", "_",
+	"\"", "_",
+	";", "_",
+	"&", "_",
+	"$", "_",
+	"*", "_",
+	"?", "_",
+	"'", "_",
+	"=", "_",
 )
 
 // getMinioConfig loads MinIO configuration from environment
@@ -98,7 +134,7 @@ func main() {
 // startServer starts the HTTP server with optional TLS + sensible timeouts
 func startServer(handler http.Handler) error {
 	port := getEnv("PORT", ":8000")
-	useTLS := strings.EqualFold(os.Getenv("USE_TLS"), "true")
+	useTLS, _ := strconv.ParseBool(os.Getenv("USE_TLS"))
 	certFile := os.Getenv("TLS_CERT_FILE")
 	keyFile := os.Getenv("TLS_KEY_FILE")
 
@@ -293,17 +329,29 @@ func downloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// sanitizeFilename ensures the uploaded filename is safe and doesn't contain path traversal.
+// sanitizeFilename ensures the uploaded filename is safe and doesn't contain path traversal
+// or other dangerous characters. It performs the following steps:
+// 1. Extracts the base filename (removes any path components)
+// 2. Trims whitespace
+// 3. Generates a default name if the result is empty or invalid
+// 4. Replaces dangerous characters with underscores using the dangerousChars replacer
+// 5. Limits the filename length to maxFilenameLen characters
 func sanitizeFilename(name string) string {
+	// Extract base filename and trim whitespace
 	name = filepath.Base(strings.TrimSpace(name))
+	
+	// Generate default name if empty or invalid
 	if name == "." || name == "" {
 		return fmt.Sprintf("upload-%d.bin", time.Now().UnixNano())
 	}
-	// rudimentary blacklist of dangerous characters
-	replacer := strings.NewReplacer("..", "_", "/", "_", "\\", "_", "`", "_", "|", "_", ">", "_", "<", "_", ":", "_", "\"", "_")
-	cleaned := replacer.Replace(name)
-	if len(cleaned) > 255 {
-		cleaned = cleaned[:255]
+	
+	// Replace all dangerous characters with underscores
+	cleaned := dangerousChars.Replace(name)
+	
+	// Limit filename length to prevent filesystem issues
+	if len(cleaned) > maxFilenameLen {
+		cleaned = cleaned[:maxFilenameLen]
 	}
+	
 	return cleaned
 }

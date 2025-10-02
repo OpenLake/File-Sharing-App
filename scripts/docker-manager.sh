@@ -2,7 +2,8 @@
 
 # File Sharing App Docker Management Script
 
-set -e
+# Exit on error, undefined variables, and pipe failures
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
