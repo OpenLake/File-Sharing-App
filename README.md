@@ -110,6 +110,44 @@ For local development without Docker, you'll need to set up each service manuall
    flutter run
    ```
 
+### Android Build Configuration (Updated October 2025)
+
+The Android project has been updated to use the latest Gradle and Android SDK tools for 2025:
+
+#### Key Updates
+- **Gradle:** 8.10 (latest stable)
+- **Android Gradle Plugin (AGP):** 8.7.3
+- **Kotlin:** 2.1.0
+- **Compile SDK:** Android 15 (API 36)
+- **Target SDK:** Android 15 (API 36)
+- **Min SDK:** Android 7.0 (API 24)
+- **Build files:** Migrated to Kotlin DSL (.kts) for better type safety and IDE support
+
+#### Build Configuration Details
+All Gradle build files have been converted to Kotlin DSL:
+- `build.gradle` → `build.gradle.kts`
+- `settings.gradle` → `settings.gradle.kts`
+- `app/build.gradle` → `app/build.gradle.kts`
+
+Modern Gradle properties added for improved performance:
+- Increased JVM heap size to 4GB
+- Enabled Gradle caching and parallel builds
+- Configured for AndroidX and Jetifier compatibility
+- Added non-transitive R class support
+
+#### Deprecated Features Removed
+- Removed deprecated `buildDir` property (replaced with `layout.buildDirectory`)
+- Removed deprecated `allprojects` repository block
+- Updated Java compatibility to version 17
+- Removed obsolete Kotlin stdlib dependency patterns
+
+#### Building for Android
+```bash
+cd filesharing
+flutter build apk --release  # For production APK
+flutter build appbundle      # For Play Store bundle
+```
+
 ---
 
 ## Usage <sup>[↥ Back to top](#table-of-contents)</sup>
