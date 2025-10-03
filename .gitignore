@@ -1,5 +1,6 @@
 # IDE
 .vscode
+.idea
 
 # AI instructions
 .github/instructions/codacy.instructions.md
@@ -11,6 +12,12 @@ Go/Go
 *.dll
 *.so
 *.dylib
+*.test
+*.out
+
+# Go coverage files
+coverage.out
+*.coverprofile
 
 # Flutter/Dart
 filesharing/.dart_tool/

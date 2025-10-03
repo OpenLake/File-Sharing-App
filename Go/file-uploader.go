@@ -114,8 +114,9 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 
 	// Create MinIO client
 	minioClient, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-		Secure: false,
+		Creds:        credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure:       false,
+		BucketLookup: minio.BucketLookupPath,
 	})
 	if err != nil {
 		fmt.Printf("Failed to create MinIO client: %v\n", err)
@@ -217,8 +218,9 @@ func downloadFile(w http.ResponseWriter, r *http.Request) {
 
 	// Create a MinIO client
 	minioClient, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-		Secure: false,
+		Creds:        credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure:       false,
+		BucketLookup: minio.BucketLookupPath,
 	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create MinIO client: %v", err), http.StatusInternalServerError)
@@ -271,8 +273,9 @@ func getMetadata(w http.ResponseWriter, r *http.Request) {
 
 	// Create a MinIO client
 	minioClient, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-		Secure: false,
+		Creds:        credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure:       false,
+		BucketLookup: minio.BucketLookupPath,
 	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create MinIO client: %v", err), http.StatusInternalServerError)
