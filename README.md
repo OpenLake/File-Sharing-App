@@ -110,8 +110,6 @@ For local development without Docker, you'll need to set up each service manuall
    flutter run
    ```
 
----
-
 ## Usage <sup>[↥ Back to top](#table-of-contents)</sup>
 
 Once the setup is complete:  

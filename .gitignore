@@ -28,6 +28,20 @@ filesharing/build/
 filesharing/.pub-cache/
 filesharing/.pub/
 
+# Android build artifacts
+filesharing/android/app/build/
+filesharing/android/app/.cxx/
+filesharing/android/.gradle/
+filesharing/android/local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Codacy tools
+.codacy/
+
 # macOS
 .DS_Store
 
