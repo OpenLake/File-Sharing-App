@@ -257,3 +257,87 @@ func TestDownloadFileMissingFilename(t *testing.T) {
 	}
 	res.Body.Close()
 }
+
+func TestUploadFileSizeExceed(t *testing.T) {
+	storage := newMockStorage()
+	server := httptest.NewServer(storage)
+	defer server.Close()
+
+	setupEnv(t, strings.TrimPrefix(server.URL, "http://"))
+
+	// Create a file larger than 1GB
+	largeContent := make([]byte, (1<<30)+1) // 1GB + 1 byte
+	contentType, body := createMultipartBody(t, "file", "largefile.dat", largeContent, nil)
+	req := httptest.NewRequest(http.MethodPost, "/upload", body)
+	req.Header.Set("Content-Type", contentType)
+	w := httptest.NewRecorder()
+
+	uploadFile(w, req)
+	res := w.Result()
+	if res.StatusCode != http.StatusBadRequest {
+		b, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+		t.Fatalf("expected 400 got %d body=%s", res.StatusCode, string(b))
+	}
+	res.Body.Close()
+}
+
+type mockMultipartFile struct {
+	*bytes.Reader
+}
+
+func (m *mockMultipartFile) Close() error {
+	return nil
+}
+
+func TestValidateFileSize(t *testing.T) {
+	maxFileSize := int64(1 << 30) // 1 GB
+
+	tests := []struct {
+		contentSize int64
+		wantErr     bool
+	}{
+		{100, false},
+		{maxFileSize - 1, false},
+		{maxFileSize, false},
+		{maxFileSize + 1, true},
+	}
+
+	for _, tt := range tests {
+		file := &mockMultipartFile{bytes.NewReader(make([]byte, tt.contentSize))}
+		err := validateFileSize(file, maxFileSize)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("validateFileSize(contentSize=%d, maxFileSize=%d) error = %v, wantErr %v", tt.contentSize, maxFileSize, err, tt.wantErr)
+		}
+	}
+}
+
+func TestValidateFileExtension(t *testing.T) {
+	tests := []struct {
+		contentType string
+		wantErr     bool
+	}{
+		{".png", false},
+		{".zip", false},
+		{".xlsx", true},
+		{".docx", false},
+		{".doc", false},
+		{".xls", true},
+		{".ppt", true},
+		{".mp4", true},
+		{".mpeg", true},
+		{".pdf", false},
+		{".jpeg", false},
+		{".jpg", false},
+		{".txt", false},
+		{".gif", false},
+	}
+
+	for _, tt := range tests {
+		filename := "testfile" + tt.contentType
+		err := validateFileExtension(filename)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("validateFileExtension(contentType=%s) error = %v, wantErr %v", tt.contentType, err, tt.wantErr)
+		}
+	}
+}
