@@ -344,6 +344,7 @@ func validateFileExtension(filename string) error {
 		".doc":  true,
 		".docx": true,
 		".zip":  true,
+		".dat":  true,
 	}
 
 	if !allowedFileTypes[ext] {

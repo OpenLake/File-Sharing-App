@@ -331,6 +331,7 @@ func TestValidateFileExtension(t *testing.T) {
 		{".jpg", false},
 		{".txt", false},
 		{".gif", false},
+		{".dat", false},
 	}
 
 	for _, tt := range tests {
