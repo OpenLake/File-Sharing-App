@@ -6,9 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -86,6 +89,21 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+	// Validate file size (max 1GB)
+	const maxFileSize = int64(1 << 30) // 1 GB
+	if err := validateFileSize(file, maxFileSize); err != nil {
+		fmt.Printf("Received file size exceeds limit of %d bytes\n", maxFileSize)
+		http.Error(w, fmt.Sprintf("Received file size exceeds limit of %d bytes", maxFileSize), http.StatusBadRequest)
+		return
+	}
+
+	// Validate file extension
+	if err := validateFileExtension(h.Filename); err != nil {
+		fmt.Printf("Recieved file %s not allowed", h.Filename)
+		http.Error(w, fmt.Sprintf("Recieved file %s not allowed", h.Filename), http.StatusBadRequest)
+		return
+	}
 
 	// Get encryption metadata if provided
 	metadataStr := r.FormValue("metadata")
@@ -307,4 +325,56 @@ func getMetadata(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to write response: %v", err), http.StatusInternalServerError)
 		return
 	}
+}
+
+// Checks if the file extension is allowed
+func validateFileExtension(filename string) error {
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext == "" {
+		return fmt.Errorf("file extension not found")
+	}
+
+	allowedFileTypes := map[string]bool{
+		".jpg":  true,
+		".jpeg": true,
+		".png":  true,
+		".gif":  true,
+		".pdf":  true,
+		".txt":  true,
+		".doc":  true,
+		".docx": true,
+		".zip":  true,
+		".dat":  true,
+	}
+
+	if !allowedFileTypes[ext] {
+		return fmt.Errorf("file: %s with type %s not allowed", filename, ext)
+	}
+
+	return nil
+}
+
+// Checks if the file size exceeds the maximum allowed size
+func validateFileSize(file multipart.File, maxFileSize int64) error {
+	var size int64
+	limitedReader := io.LimitReader(file, maxFileSize+1)
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := limitedReader.Read(buf)
+		size += int64(n)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("error reading file: %v", err)
+		}
+		if size > maxFileSize {
+			return fmt.Errorf("file size exceeds limit of %d bytes", maxFileSize)
+		}
+	}
+
+	// Reset file reader to start
+	file.Seek(0, io.SeekStart)
+
+	return nil
 }
