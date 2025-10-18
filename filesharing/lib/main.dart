@@ -112,6 +112,7 @@ class _MyHomePageState extends State<MyHomePage> {
   bool isUploading = false; // Track upload state
   bool isDownloading = false; // Track download state
   Map<String, dynamic>? encryptionMetadata; // Store encryption metadata
+  String selectedPage = '';
 
   void _setUploading(bool value) {
     if (!mounted) return;
@@ -348,6 +349,37 @@ class _MyHomePageState extends State<MyHomePage> {
             tooltip: 'Toggle Theme',
           ),
         ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue),
+              child: Text('FILE SHARING APP', style: TextStyle(color: Colors.white, fontSize: 24)),
+            ),
+            const ExpansionTile(
+              leading: Icon(Icons.library_books),
+              title: Text('Recent File Shares'),
+              childrenPadding: EdgeInsets.only(left: 40),
+              children: [], // Users file shares as a list of files
+            ),
+            ExpansionTile(
+              leading: const Icon(Icons.account_circle),
+              title: const Text('Account'),
+              childrenPadding: const EdgeInsets.only(left: 40),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.person),
+                  title: const Text('View/Edit Profile'),
+                  onTap: () {
+                    selectedPage = 'view-edit-profile';
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
       body: SingleChildScrollView(
         child: Center(
