@@ -62,3 +62,30 @@ flutter {
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:2.1.0")
 }
+
+// temporary solution to path error during 'flutter run'
+afterEvaluate {
+    tasks.findByName("assembleDebug")?.doLast {
+        val src = layout.buildDirectory.file("outputs/apk/debug/app-debug.apk").get().asFile
+        val destDir = rootProject.layout.projectDirectory.dir("../build/app/outputs/flutter-apk").asFile
+        destDir.mkdirs()
+        if (src.exists()) {
+            src.copyTo(File(destDir, "app-debug.apk"), overwrite = true)
+            println("Copied debug APK to ${destDir.absolutePath}")
+        } else {
+            println("APK not found at ${src.absolutePath}")
+        }
+    }
+
+    tasks.findByName("assembleRelease")?.doLast {
+        val src = layout.buildDirectory.file("outputs/apk/release/app-release.apk").get().asFile
+        val destDir = rootProject.layout.projectDirectory.dir("../build/app/outputs/flutter-apk").asFile
+        destDir.mkdirs()
+        if (src.exists()) {
+            src.copyTo(File(destDir, "app-release.apk"), overwrite = true)
+            println("Copied release APK to ${destDir.absolutePath}")
+        } else {
+            println("APK not found at ${src.absolutePath}")
+        }
+    }
+}
