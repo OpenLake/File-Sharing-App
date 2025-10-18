@@ -86,29 +86,49 @@ The setup uses these default environment variables:
 
 ## Getting Started <sup>[↥ Back to top](#table-of-contents)</sup>
 
-For local development without Docker, you'll need to set up each service manually. Please refer to the individual service directories for specific setup instructions.
-   go run file-uploader.go
-   ```
+For local development without Docker, you'll need to set up each service manually. You can follow the commands here.
 
-##### � Setting up Frontend (Flutter)
-1. Navigate to the Flutter directory:
-   ```bash
-   cd filesharing
-   ```
+### Prerequisites
+Make sure you have the following installed:
+- [Go](https://go.dev) (>=1.18)  
+- [Flutter](https://flutter.dev) (>=3.0)  
+- [MinIO](https://min.io)  
 
-2. Install dependencies:
-   ```bash
-   flutter pub get
-   ```
+---
 
+### 📄 Running MinIO Server
+1. Create a directory for MinIO:
+mkdir ~/minio
+
+2. Run the server on port **9090**:
+minio server ~/minio --console-address :9090
+
+---
+
+### 📄 Running Backend (Go)
+1. Navigate to the Go backend folder:
+cd backend
+
+2. Create a `.env` file with:
+LOCAL_IP="" # Your local IP connected with minio (port 9000)
+ACCESS_KEY="" # MinIO access key
+SECRET_KEY="" # MinIO secret key
+
+3. Install MinIO Go SDK if missing:
+go get github.com/minio/minio-go/v7
+
+4. Start backend:
+go run file-uploader.go
+
+---
+
+### 📄 Running Frontend (Flutter)
+1. Open the Flutter project in **Android Studio**.  
+2. Update the upload/download endpoint IPs in the code with your local IP (port `8000`).  
 3. Run the application:
-   ```bash
-   # For web
-   flutter run -d web-server --web-port 3000
-   
-   # For mobile (requires device/emulator)
-   flutter run
-   ```
+flutter run
+
+---
 
 ## Usage <sup>[↥ Back to top](#table-of-contents)</sup>
 
