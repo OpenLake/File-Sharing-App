@@ -1,9 +1,13 @@
+import 'dart:async';
+
+import 'package:dotted_border/dotted_border.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:filesharing/app_config.dart';
 import 'package:filesharing/services/encryption_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dropzone/flutter_dropzone.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 
@@ -28,6 +32,8 @@ class _MyHomePageState extends State<MyHomePage> {
   bool isDownloading = false; // Track download state
   Map<String, dynamic>? encryptionMetadata; // Store encryption metadata
   String selectedPage = '';
+  late DropzoneViewController controller;
+  bool zoneHighlighted = false;
 
   void _setUploading(bool value) {
     if (!mounted) return;
@@ -65,95 +71,103 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  /// Handles the core logic of encrypting and uploading the file.
+  Future<void> _uploadFile(String filename, Uint8List fileBytes) async {
+    _setUploading(true);
+    try {
+      if (!mounted) return;
+      _showSnack("Encrypting file...");
+      final encryptionResult = EncryptionService.encryptFile(fileBytes);
+      final encryptedBytes = Uint8List.fromList(
+        encryptionResult['encryptedBytes'],
+      );
+      final originalHash = EncryptionService.generateFileHash(fileBytes);
+
+      encryptionMetadata = EncryptionService.createMetadata(
+        iv: encryptionResult['iv'],
+        key: encryptionResult['key'],
+        originalFilename: filename,
+        fileHash: originalHash,
+        originalSize: fileBytes.length,
+      );
+
+      final encryptedFilename = '$filename.encrypted';
+
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${AppConfig.baseUrl}/upload'),
+      );
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          encryptedBytes,
+          filename: encryptedFilename,
+        ),
+      );
+
+      request.fields['metadata'] = EncryptionService.serializeMetadata(
+        encryptionMetadata!,
+      );
+
+      var response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        setState(() {
+          download = _sanitizeResponseBody(responseBody);
+          uploadedFilename = encryptedFilename;
+        });
+        _showSnack("File encrypted and uploaded successfully");
+      } else {
+        _showSnack(
+          "File upload failed: ${response.statusCode} - $responseBody",
+          isError: true,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack("Error uploading file: $e", isError: true);
+    } finally {
+      _setUploading(false);
+    }
+  }
+
+  /// Opens the file picker and triggers the upload process.
   Future<Null> Function()? selectFile() {
     return isUploading
         ? null
         : () async {
-            _setUploading(true);
             try {
               FilePickerResult? result = await FilePicker.platform.pickFiles(
                 type: FileType.any,
                 allowMultiple: false,
               );
 
-              if (!mounted) return;
+              if (!mounted || result == null || result.files.isEmpty) return;
 
-              if (result != null && result.files.isNotEmpty) {
-                final selectedFile = result.files.single;
-                Uint8List? fileBytes;
+              final selectedFile = result.files.single;
+              Uint8List? fileBytes;
 
-                if (kIsWeb) {
-                  if (selectedFile.bytes != null) {
-                    fileBytes = selectedFile.bytes!;
-                  } else {
-                    throw Exception('File bytes are unavailable');
-                  }
+              if (kIsWeb) {
+                if (selectedFile.bytes != null) {
+                  fileBytes = selectedFile.bytes!;
                 } else {
-                  if (selectedFile.path != null) {
-                    fileBytes = await selectedFile.xFile.readAsBytes();
-                  } else {
-                    throw Exception('File path is unavailable');
-                  }
-                }
-
-                _showSnack("Encrypting file...");
-                final encryptionResult =
-                    EncryptionService.encryptFile(fileBytes);
-                final encryptedBytes =
-                    Uint8List.fromList(encryptionResult['encryptedBytes']);
-                final originalHash =
-                    EncryptionService.generateFileHash(fileBytes);
-
-                encryptionMetadata = EncryptionService.createMetadata(
-                  iv: encryptionResult['iv'],
-                  key: encryptionResult['key'],
-                  originalFilename: selectedFile.name,
-                  fileHash: originalHash,
-                  originalSize: fileBytes.length,
-                );
-
-                final encryptedFilename = '${selectedFile.name}.encrypted';
-
-                var request = http.MultipartRequest(
-                  'POST',
-                  Uri.parse('${AppConfig.baseUrl}/upload'),
-                );
-
-                request.files.add(http.MultipartFile.fromBytes(
-                  'file',
-                  encryptedBytes,
-                  filename: encryptedFilename,
-                ));
-
-                request.fields['metadata'] =
-                    EncryptionService.serializeMetadata(encryptionMetadata!);
-
-                var response = await request.send();
-                final responseBody = await response.stream.bytesToString();
-                if (!mounted) return;
-
-                if (response.statusCode == 200) {
-                  setState(() {
-                    download = _sanitizeResponseBody(responseBody);
-                    uploadedFilename = encryptedFilename;
-                    isUploading = false;
-                  });
-                  _showSnack("File encrypted and uploaded successfully");
-                } else {
-                  _setUploading(false);
-                  _showSnack(
-                    "File upload failed: ${response.statusCode} - $responseBody",
-                    isError: true,
-                  );
+                  throw Exception('File bytes are unavailable');
                 }
               } else {
-                uploadedFilename = null;
-                _setUploading(false);
+                if (selectedFile.path != null) {
+                  fileBytes = await selectedFile.xFile.readAsBytes();
+                } else {
+                  throw Exception('File path is unavailable');
+                }
               }
+
+              await _uploadFile(selectedFile.name, fileBytes);
             } catch (e) {
-              _setUploading(false);
               if (!mounted) return;
-              _showSnack("Error uploading file: $e", isError: true);
+              _showSnack("Error selecting file: $e", isError: true);
             }
           };
   }
@@ -178,7 +192,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
               final urlResponse = await http.get(
                 Uri.parse(
-                    '${AppConfig.baseUrl}/download?filename=$uploadedFilename'),
+                  '${AppConfig.baseUrl}/download?filename=$uploadedFilename',
+                ),
               );
               if (!mounted) return;
 
@@ -198,11 +213,13 @@ class _MyHomePageState extends State<MyHomePage> {
                     encryptionMetadata!['key'],
                   );
 
-                  final decryptedHash =
-                      EncryptionService.generateFileHash(decryptedBytes);
+                  final decryptedHash = EncryptionService.generateFileHash(
+                    decryptedBytes,
+                  );
                   if (decryptedHash != encryptionMetadata!['fileHash']) {
                     throw Exception(
-                        'File integrity check failed - file may be corrupted');
+                      'File integrity check failed - file may be corrupted',
+                    );
                   }
 
                   setState(() {
@@ -211,7 +228,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   });
 
                   _showSnack(
-                      "File decrypted successfully! Original: ${encryptionMetadata!['originalFilename']}");
+                    "File decrypted successfully! Original: ${encryptionMetadata!['originalFilename']}",
+                  );
                 } else {
                   _setDownloading(false);
                   _showSnack(
@@ -229,10 +247,7 @@ class _MyHomePageState extends State<MyHomePage> {
             } catch (e) {
               _setDownloading(false);
               if (!mounted) return;
-              _showSnack(
-                "Error during download/decryption: $e",
-                isError: true,
-              );
+              _showSnack("Error during download/decryption: $e", isError: true);
             }
           };
   }
@@ -248,14 +263,50 @@ class _MyHomePageState extends State<MyHomePage> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 500),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                const SizedBox(height: 20),
                 Row(
                   children: [
-                    uploadButton(context),
+                    Expanded(
+                      child: SizedBox(
+                        height: 250,
+                        // Conditionally build the entire UI based on platform
+                        child: kIsWeb
+                            ? Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  dropzone(context),
+                                  DottedBorder(
+                                    options: RoundedRectDottedBorderOptions(
+                                      strokeCap: StrokeCap.round,
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Colors.blue,
+                                          Colors.purple,
+                                          Colors.indigo,
+                                        ],
+                                      ),
+                                      strokeWidth: zoneHighlighted ? 3 : 2,
+                                      radius: const Radius.circular(16.0),
+                                      dashPattern: zoneHighlighted
+                                          ? const [6, 9]
+                                          : const [9, 6],
+                                    ),
+                                    child: uploadButton(context),
+                                  ),
+                                ],
+                              )
+                            : Center(child: uploadButton(context)),
+                      ),
+                    ),
                     const SizedBox(width: 20),
-                    downloadButton(context),
+                    Expanded(
+                      child: SizedBox(
+                        height: 250,
+                        child: Stack(
+                          children: [Center(child: downloadButton(context))],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 40),
@@ -273,7 +324,6 @@ class _MyHomePageState extends State<MyHomePage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-
     final textStyle = TextStyle(
       fontSize: 14,
       color: colorScheme.onSurface.withAlpha((0.7 * 255).toInt()),
@@ -289,17 +339,11 @@ class _MyHomePageState extends State<MyHomePage> {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 12.0, bottom: 4.0),
-          child: Text(
-            "Sharable Link",
-            style: labelStyle,
-          ),
+          child: Text("Sharable Link", style: labelStyle),
         ),
         Container(
           decoration: BoxDecoration(
-            border: Border.all(
-              color: colorScheme.outline,
-              width: 1.0,
-            ),
+            border: Border.all(color: colorScheme.outline, width: 1.0),
             borderRadius: const BorderRadius.all(Radius.circular(12.0)),
           ),
           child: Row(
@@ -354,48 +398,53 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget uploadButton(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Expanded(
-      child: Card(
-        shadowColor: colorScheme.primary.withAlpha(100),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(16.0)),
-          child: InkWell(
-            onTap: selectFile(),
-            child: Container(
-              height: 250,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    colorScheme.secondary,
-                    colorScheme.secondaryContainer,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+    return Card(
+      shadowColor: colorScheme.primary.withAlpha(100),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(16.0)),
+        child: InkWell(
+          onTap: selectFile(),
+          child: Container(
+            height: 250,
+            width: 200,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: zoneHighlighted
+                    ? [colorScheme.secondaryContainer, colorScheme.secondary]
+                    : [colorScheme.secondary, colorScheme.secondaryContainer],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              child: isUploading
-                  ? Center(
-                      child: CircularProgressIndicator(
+            ),
+            child: isUploading
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.upload_rounded,
+                        size: 50,
                         color: colorScheme.onPrimaryContainer,
                       ),
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.upload_rounded,
-                          size: 50,
+                      const SizedBox(height: 10),
+                      Text(
+                        'Upload',
+                        style: theme.textTheme.headlineLarge?.copyWith(
                           color: colorScheme.onPrimaryContainer,
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Upload',
-                          style: theme.textTheme.headlineLarge
-                              ?.copyWith(color: colorScheme.onPrimaryContainer),
+                      ),
+                      Text(
+                        'or drag n drop',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onPrimaryContainer,
                         ),
-                      ],
-                    ),
-            ),
+                      ),
+                    ],
+                  ),
           ),
         ),
       ),
@@ -405,48 +454,45 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget downloadButton(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Expanded(
-      child: Card(
-        shadowColor: colorScheme.primary.withAlpha(100),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(16.0)),
-          child: InkWell(
-            onTap: downloadFile(),
-            child: Container(
-              height: 250,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    colorScheme.secondary,
-                    colorScheme.secondaryContainer,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+    return Card(
+      shadowColor: colorScheme.primary.withAlpha(100),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(16.0)),
+        child: InkWell(
+          onTap: downloadFile(),
+          child: Container(
+            height: 250,
+            width: 200,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [colorScheme.secondary, colorScheme.secondaryContainer],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              child: isDownloading
-                  ? Center(
-                      child: CircularProgressIndicator(
+            ),
+            child: isDownloading
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: colorScheme.onSecondaryContainer,
+                    ),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.download_rounded,
+                        size: 50,
                         color: colorScheme.onSecondaryContainer,
                       ),
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.download_rounded,
-                          size: 50,
+                      const SizedBox(height: 10),
+                      Text(
+                        'Download',
+                        style: theme.textTheme.headlineLarge?.copyWith(
                           color: colorScheme.onSecondaryContainer,
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Download',
-                          style: theme.textTheme.headlineLarge?.copyWith(
-                              color: colorScheme.onSecondaryContainer),
-                        ),
-                      ],
-                    ),
-            ),
+                      ),
+                    ],
+                  ),
           ),
         ),
       ),
@@ -468,8 +514,9 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           expansionTileTheme: ExpansionTileThemeData(
             iconColor: colorScheme.primary,
-            collapsedIconColor:
-                colorScheme.onSurface.withAlpha((0.7 * 256).toInt()),
+            collapsedIconColor: colorScheme.onSurface.withAlpha(
+              (0.7 * 256).toInt(),
+            ),
             textColor: colorScheme.primary,
             collapsedTextColor: colorScheme.onSurface,
           ),
@@ -481,8 +528,9 @@ class _MyHomePageState extends State<MyHomePage> {
               decoration: BoxDecoration(color: colorScheme.primaryContainer),
               child: Text(
                 'FILE SHARING APP',
-                style: textTheme.headlineSmall
-                    ?.copyWith(color: colorScheme.onPrimaryContainer),
+                style: textTheme.headlineSmall?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
             ),
             const ExpansionTile(
@@ -523,9 +571,7 @@ class _MyHomePageState extends State<MyHomePage> {
       elevation: 0,
       toolbarHeight: 180,
       flexibleSpace: ClipRRect(
-        borderRadius: const BorderRadius.vertical(
-          bottom: Radius.circular(50),
-        ),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(50)),
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -537,20 +583,19 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       title: const Text('File Share'),
-      titleTextStyle:
-          theme.textTheme.displayMedium?.copyWith(color: colorScheme.onPrimary),
+      titleTextStyle: theme.textTheme.displayMedium?.copyWith(
+        color: colorScheme.onPrimary,
+      ),
       centerTitle: false,
-      actionsIconTheme: IconThemeData(
-        color: colorScheme.onPrimary,
-      ),
-      iconTheme: IconThemeData(
-        color: colorScheme.onPrimary,
-      ),
+      actionsIconTheme: IconThemeData(color: colorScheme.onPrimary),
+      iconTheme: IconThemeData(color: colorScheme.onPrimary),
       actions: [
         IconButton(
-          icon: Icon(widget.themeMode == ThemeMode.light
-              ? Icons.dark_mode_outlined
-              : Icons.light_mode_outlined),
+          icon: Icon(
+            widget.themeMode == ThemeMode.light
+                ? Icons.dark_mode_outlined
+                : Icons.light_mode_outlined,
+          ),
           onPressed: widget.onThemeChanged,
           tooltip: 'Toggle Theme',
         ),
@@ -558,4 +603,30 @@ class _MyHomePageState extends State<MyHomePage> {
       ],
     );
   }
+
+  Widget dropzone(BuildContext context) => Builder(
+        builder: (context) => DropzoneView(
+          operation: DragOperation.copy,
+          cursor: CursorType.grab,
+          onCreated: (ctrl) => controller = ctrl,
+          onError: (error) => debugPrint('Zone 1 error: $error'),
+          onHover: () {
+            setState(() => zoneHighlighted = true);
+          },
+          onLeave: () {
+            setState(() => zoneHighlighted = false);
+          },
+          onDropFile: (DropzoneFileInterface file) async {
+            setState(() {
+              zoneHighlighted = false;
+            });
+            if (isUploading) {
+              _showSnack("An upload is already in progress.", isError: true);
+              return;
+            }
+            final bytes = await controller.getFileData(file);
+            await _uploadFile(file.name, bytes);
+          },
+        ),
+      );
 }
