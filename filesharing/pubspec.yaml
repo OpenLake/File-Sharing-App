@@ -36,36 +36,44 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  
+
   # HTTP requests for network communication
   http: ^1.2.1
-  
+
   # Cache management (replacing disk_lru_cache which doesn't support null safety)
   flutter_cache_manager: ^3.3.2
-  
+
   # URL launcher for opening links in browser/apps
   url_launcher: ^6.3.0
-  
+
   # File picker for selecting files from device storage
   file_picker: ^8.0.6
-  
+
   # Clipboard operations are built into Flutter (package:flutter/services)
   # No additional package needed for basic clipboard functionality
-  
+
   # IO operations - use dart:io instead of the 'io' package
   # Note: 'io' package is typically not needed in Flutter - use dart:io instead
-  
+
   # JSON conversion - use dart:convert instead of 'convert' package
   # convert: # Built into Dart SDK
-  
+
   # Share functionality (updated package replacing flutter_share)
   share_plus: ^9.0.0
-  
+
   # Encryption packages for end-to-end encryption
   encrypt: ^5.0.3
   pointycastle: ^3.9.1
   crypto: ^3.0.3
+
+  # For persisting user theme preference
   shared_preferences: ^2.5.3
+
+  # For drag and drop area decoration
+  dotted_border: ^3.1.0
+
+  # For implementing drag and drop area
+  flutter_dropzone: ^4.2.1
 
 dev_dependencies:
   flutter_test:
