@@ -40,16 +40,12 @@ We often need to transfer files between mobile and desktop devices. Typically, t
 This project enables **direct file sharing over an intranet** without requiring internet connectivity.  
 
 ### ✨ Features
-- Cross-platform intranet file sharing between multiple devices.  
-- **End-to-End Encryption** with AES-256-GCM for secure file transfers.  
-- Client-side encryption and decryption for maximum security.  
-- File integrity verification with SHA-256 hashing.  
+- Cross-platform intranet file sharing between multiple devices. 
 - Powered by **MinIO** (object storage server) for efficient file handling.  
 - **Tech Stack:**  
   - **Frontend:** Flutter  
   - **Backend:** GoLang  
   - **File Storage:** MinIO  
-  - **Encryption:** AES-256-GCM with ECDH key exchange support  
 
 ---
 
@@ -107,7 +103,7 @@ minio server ~/minio --console-address :9090
 
 ### 📄 Running Backend (Go)
 1. Navigate to the Go backend folder:
-cd backend
+cd Go
 
 2. Create a `.env` file with:
 LOCAL_IP="" # Your local IP connected with minio (port 9000)
@@ -133,18 +129,10 @@ flutter run
 ## Usage <sup>[↥ Back to top](#table-of-contents)</sup>
 
 Once the setup is complete:  
-- Upload files from one device via the Flutter app.  
-- Files are automatically encrypted client-side using AES-256-GCM before upload.  
+- Upload files from one device via the Flutter app.   
 - Files are stored securely in MinIO over your intranet.  
 - Download files seamlessly on other connected devices.  
 - Files are automatically decrypted client-side after download with integrity verification.  
-
-### 🔒 Security Features
-- **Client-side encryption**: Files are encrypted before leaving your device
-- **AES-256-GCM**: Industry-standard encryption algorithm
-- **Integrity verification**: SHA-256 hashing ensures files haven't been tampered with
-- **Unique keys**: Each file gets a unique encryption key
-- See [ENCRYPTION.md](ENCRYPTION.md) for detailed security documentation  
 
 ### 🐳 Using Docker Setup
 1. Start the application stack:

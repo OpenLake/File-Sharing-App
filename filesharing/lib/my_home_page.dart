@@ -1,9 +1,7 @@
 import 'dart:async';
-
 import 'package:dotted_border/dotted_border.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:filesharing/app_config.dart';
-import 'package:filesharing/services/encryption_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,7 +28,6 @@ class _MyHomePageState extends State<MyHomePage> {
   String? uploadedFilename;
   bool isUploading = false; // Track upload state
   bool isDownloading = false; // Track download state
-  Map<String, dynamic>? encryptionMetadata; // Store encryption metadata
   String selectedPage = '';
   late DropzoneViewController controller;
   bool zoneHighlighted = false;
@@ -71,43 +68,21 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  /// Handles the core logic of encrypting and uploading the file.
   Future<void> _uploadFile(String filename, Uint8List fileBytes) async {
     _setUploading(true);
     try {
       if (!mounted) return;
-      _showSnack("Encrypting file...");
-      final encryptionResult = EncryptionService.encryptFile(fileBytes);
-      final encryptedBytes = Uint8List.fromList(
-        encryptionResult['encryptedBytes'],
-      );
-      final originalHash = EncryptionService.generateFileHash(fileBytes);
-
-      encryptionMetadata = EncryptionService.createMetadata(
-        iv: encryptionResult['iv'],
-        key: encryptionResult['key'],
-        originalFilename: filename,
-        fileHash: originalHash,
-        originalSize: fileBytes.length,
-      );
-
-      final encryptedFilename = '$filename.encrypted';
 
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('${AppConfig.baseUrl}/upload'),
       );
-
       request.files.add(
         http.MultipartFile.fromBytes(
           'file',
-          encryptedBytes,
-          filename: encryptedFilename,
+          fileBytes,
+          filename: filename,
         ),
-      );
-
-      request.fields['metadata'] = EncryptionService.serializeMetadata(
-        encryptionMetadata!,
       );
 
       var response = await request.send();
@@ -117,9 +92,9 @@ class _MyHomePageState extends State<MyHomePage> {
       if (response.statusCode == 200) {
         setState(() {
           download = _sanitizeResponseBody(responseBody);
-          uploadedFilename = encryptedFilename;
+          uploadedFilename = filename;
         });
-        _showSnack("File encrypted and uploaded successfully");
+        _showSnack("File uploaded successfully");
       } else {
         _showSnack(
           "File upload failed: ${response.statusCode} - $responseBody",
@@ -144,7 +119,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 type: FileType.any,
                 allowMultiple: false,
               );
-
               if (!mounted || result == null || result.files.isEmpty) return;
 
               final selectedFile = result.files.single;
@@ -184,12 +158,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 return;
               }
 
-              if (encryptionMetadata == null) {
-                _showSnack("No encryption metadata available", isError: true);
-                _setDownloading(false);
-                return;
-              }
-
               final urlResponse = await http.get(
                 Uri.parse(
                   '${AppConfig.baseUrl}/download?filename=$uploadedFilename',
@@ -200,43 +168,13 @@ class _MyHomePageState extends State<MyHomePage> {
               if (urlResponse.statusCode == 200) {
                 final fileUrl = _sanitizeResponseBody(urlResponse.body);
 
-                _showSnack("Downloading encrypted file...");
-                final fileResponse = await http.get(Uri.parse(fileUrl));
+                setState(() {
+                  download = fileUrl;
+                  isDownloading = false;
+                });
 
-                if (fileResponse.statusCode == 200) {
-                  _showSnack("Decrypting file...");
-                  final encryptedBytes = fileResponse.bodyBytes;
-
-                  final decryptedBytes = EncryptionService.decryptFile(
-                    encryptedBytes,
-                    encryptionMetadata!['iv'],
-                    encryptionMetadata!['key'],
-                  );
-
-                  final decryptedHash = EncryptionService.generateFileHash(
-                    decryptedBytes,
-                  );
-                  if (decryptedHash != encryptionMetadata!['fileHash']) {
-                    throw Exception(
-                      'File integrity check failed - file may be corrupted',
-                    );
-                  }
-
-                  setState(() {
-                    download = fileUrl;
-                    isDownloading = false;
-                  });
-
-                  _showSnack(
-                    "File decrypted successfully! Original: ${encryptionMetadata!['originalFilename']}",
-                  );
-                } else {
-                  _setDownloading(false);
-                  _showSnack(
-                    "File download failed: ${fileResponse.statusCode}",
-                    isError: true,
-                  );
-                }
+                _showSnack("File download URL retrieved!");
+                // Note: File can now be downloaded directly via this URL, no decryption needed!
               } else {
                 _setDownloading(false);
                 _showSnack(
@@ -247,7 +185,7 @@ class _MyHomePageState extends State<MyHomePage> {
             } catch (e) {
               _setDownloading(false);
               if (!mounted) return;
-              _showSnack("Error during download/decryption: $e", isError: true);
+              _showSnack("Error during download: $e", isError: true);
             }
           };
   }
@@ -269,7 +207,6 @@ class _MyHomePageState extends State<MyHomePage> {
                     Expanded(
                       child: SizedBox(
                         height: 250,
-                        // Conditionally build the entire UI based on platform
                         child: kIsWeb
                             ? Stack(
                                 alignment: Alignment.center,
@@ -328,11 +265,9 @@ class _MyHomePageState extends State<MyHomePage> {
       fontSize: 14,
       color: colorScheme.onSurface.withAlpha((0.7 * 255).toInt()),
     );
-
     final labelStyle = textTheme.labelLarge?.copyWith(
       color: colorScheme.onSurface.withAlpha(180),
     );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -438,7 +373,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         ),
                       ),
                       Text(
-                        'or drag n drop',
+                        'Drag & Drop',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: colorScheme.onPrimaryContainer,
                         ),
