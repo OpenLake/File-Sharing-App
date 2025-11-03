@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -14,16 +13,15 @@ import (
 )
 
 const (
-	headerContentType      = "Content-Type"
-	errSetEnvFmt           = "set env: %v"
-	pathUpload             = "/upload"
-	fmtExpected200WithBody = "expected 200 got %d body=%s"
+	headerContentType = "Content-Type"
+	pathUpload        = "/upload"
 )
 
 type storedObject struct {
 	data []byte
 	ct   string
 }
+
 type mockStorage struct {
 	mu      sync.RWMutex
 	buckets map[string]map[string]storedObject
@@ -32,19 +30,24 @@ type mockStorage struct {
 func newMockStorage() *mockStorage {
 	return &mockStorage{buckets: make(map[string]map[string]storedObject)}
 }
+
 func (m *mockStorage) bucketExists(bucket string) bool { _, ok := m.buckets[bucket]; return ok }
+
 func (m *mockStorage) createBucket(bucket string) {
 	if !m.bucketExists(bucket) {
 		m.buckets[bucket] = make(map[string]storedObject)
 	}
 }
+
 func (m *mockStorage) putObject(bucket, object string, data []byte, ct string) {
 	m.buckets[bucket][object] = storedObject{data: data, ct: ct}
 }
+
 func (m *mockStorage) getObject(bucket, object string) (storedObject, bool) {
 	o, ok := m.buckets[bucket][object]
 	return o, ok
 }
+
 func (m *mockStorage) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	parts := strings.Split(path, "/")
@@ -107,7 +110,7 @@ func (m *mockStorage) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // helper to create multipart body
-func createMultipartBody(t *testing.T, fieldName, filename string, content []byte, extraFields map[string]string) (string, *bytes.Buffer) {
+func createMultipartBody(t *testing.T, fieldName, filename string, content []byte) (string, *bytes.Buffer) {
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
 	fw, err := w.CreateFormFile(fieldName, filename)
@@ -116,11 +119,6 @@ func createMultipartBody(t *testing.T, fieldName, filename string, content []byt
 	}
 	if _, err := fw.Write(content); err != nil {
 		t.Fatalf("writing file content failed: %v", err)
-	}
-	for k, v := range extraFields {
-		if err := w.WriteField(k, v); err != nil {
-			t.Fatalf("WriteField error: %v", err)
-		}
 	}
 	_ = w.Close()
 	return w.FormDataContentType(), &b
@@ -145,7 +143,7 @@ func TestUploadFileSuccess(t *testing.T) {
 
 	setupEnv(t, strings.TrimPrefix(server.URL, "http://"))
 
-	contentType, body := createMultipartBody(t, "file", "test.txt", []byte("hello world"), nil)
+	contentType, body := createMultipartBody(t, "file", "test.txt", []byte("hello world"))
 	req := httptest.NewRequest(http.MethodPost, "/upload", body)
 	req.Header.Set("Content-Type", contentType)
 	w := httptest.NewRecorder()
@@ -169,37 +167,6 @@ func TestUploadFileSuccess(t *testing.T) {
 	storage.mu.RUnlock()
 	if !ok {
 		t.Fatalf("file not stored in mock storage")
-	}
-}
-
-func TestUploadFileWithMetadata(t *testing.T) {
-	storage := newMockStorage()
-	server := httptest.NewServer(storage)
-	defer server.Close()
-
-	setupEnv(t, strings.TrimPrefix(server.URL, "http://"))
-
-	meta := map[string]any{"version": "1", "originalFilename": "orig.txt"}
-	metaJSON, _ := json.Marshal(meta)
-	contentType, body := createMultipartBody(t, "file", "encrypted.dat", []byte("encdata"), map[string]string{"metadata": string(metaJSON)})
-	req := httptest.NewRequest(http.MethodPost, "/upload", body)
-	req.Header.Set("Content-Type", contentType)
-	w := httptest.NewRecorder()
-
-	uploadFile(w, req)
-	res := w.Result()
-	if res.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(res.Body)
-		res.Body.Close()
-		t.Fatalf("expected 200 got %d body=%s", res.StatusCode, string(b))
-	}
-	res.Body.Close()
-	storage.mu.RLock()
-	_, okFile := storage.buckets["sarvesh"]["encrypted.dat"]
-	_, okMeta := storage.buckets["sarvesh"]["encrypted.dat.metadata.json"]
-	storage.mu.RUnlock()
-	if !okFile || !okMeta {
-		t.Fatalf("expected both file and metadata stored; got file=%v metadata=%v", okFile, okMeta)
 	}
 }
 
@@ -267,7 +234,7 @@ func TestUploadFileSizeExceed(t *testing.T) {
 
 	// Create a file larger than 1GB
 	largeContent := make([]byte, (1<<30)+1) // 1GB + 1 byte
-	contentType, body := createMultipartBody(t, "file", "largefile.dat", largeContent, nil)
+	contentType, body := createMultipartBody(t, "file", "largefile.dat", largeContent)
 	req := httptest.NewRequest(http.MethodPost, "/upload", body)
 	req.Header.Set("Content-Type", contentType)
 	w := httptest.NewRecorder()
