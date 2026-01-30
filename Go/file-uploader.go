@@ -17,6 +17,8 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
+const defaultBucketName = "default-bucket" 
+
 func main() {
 	if err := godotenv.Load(); err != nil {
 		fmt.Printf("Error loading .env file: %v\n", err)
@@ -117,26 +119,26 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	// Check and create bucket
-	exists, err := minioClient.BucketExists(ctx, "sarvesh")
+	exists, err := minioClient.BucketExists(ctx, defaultBucketName)
 	if err != nil {
 		fmt.Printf("Failed to check bucket: %v\n", err)
 		http.Error(w, fmt.Sprintf("Failed to check bucket: %v", err), http.StatusInternalServerError)
 		return
 	}
 	if !exists {
-		err = minioClient.MakeBucket(ctx, "sarvesh", minio.MakeBucketOptions{Region: ""})
+		err = minioClient.MakeBucket(ctx, defaultBucketName, minio.MakeBucketOptions{Region: ""})
 		if err != nil {
 			fmt.Printf("Failed to create bucket: %v\n", err)
 			http.Error(w, fmt.Sprintf("Failed to create bucket: %v", err), http.StatusInternalServerError)
 			return
 		}
-		fmt.Println("Bucket 'sarvesh' created successfully")
+		fmt.Printf("Bucket %s created successfully\n", defaultBucketName)
 	} else {
-		fmt.Println("Bucket 'sarvesh' already exists")
+		fmt.Printf("Bucket %s already exists\n", defaultBucketName)
 	}
 
 	// Upload to MinIO
-	uploadInfo, err := minioClient.PutObject(ctx, "sarvesh", h.Filename, file, h.Size, minio.PutObjectOptions{
+	uploadInfo, err := minioClient.PutObject(ctx, defaultBucketName, h.Filename, file, h.Size, minio.PutObjectOptions{
 		ContentType: "application/octet-stream",
 	})
 	if err != nil {
@@ -149,7 +151,7 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 	// Generate presigned URL
 	reqParams := make(url.Values)
 	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=%q", h.Filename))
-	presignedURL, err := minioClient.PresignedGetObject(ctx, "sarvesh", h.Filename, time.Second*24*60*60, reqParams)
+	presignedURL, err := minioClient.PresignedGetObject(ctx, defaultBucketName, h.Filename, time.Second*24*60*60, reqParams)
 	if err != nil {
 		fmt.Printf("Failed to generate presigned URL: %v\n", err)
 		http.Error(w, fmt.Sprintf("Failed to generate presigned URL: %v", err), http.StatusInternalServerError)
@@ -207,7 +209,7 @@ func downloadFile(w http.ResponseWriter, r *http.Request) {
 	// Generate presigned URL
 	reqParams := make(url.Values)
 	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=%q", filename))
-	presignedURL, err := minioClient.PresignedGetObject(ctx, "sarvesh", filename, time.Second*24*60*60, reqParams)
+	presignedURL, err := minioClient.PresignedGetObject(ctx, defaultBucketName, filename, time.Second*24*60*60, reqParams)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to generate presigned URL: %v", err), http.StatusInternalServerError)
 		return
