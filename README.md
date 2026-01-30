@@ -76,7 +76,7 @@ This project includes Docker support to easily run the entire stack with a singl
 ### Environment Variables
 The setup uses these default environment variables:
 - `ACCESS_KEY=minioadmin`
-- `SECRET_KEY=minioadmin123`
+- `SECRET_KEY=minioadmin`
 - `LOCAL_IP=minio:9000`
 ---
 
